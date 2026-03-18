@@ -6,7 +6,9 @@ import json
 
 import pytest
 
-from ascp.assurance import execute_builtin_stub_run, list_suite_ids, scenarios_for_suite
+from unittest.mock import MagicMock, patch
+
+from ascp.assurance import execute_assurance_run, execute_builtin_stub_run, list_suite_ids, scenarios_for_suite
 from ascp.core.types import new_run_id
 from ascp.storage import AssuranceRunRecord, SqliteFsBackend
 
@@ -98,3 +100,40 @@ def test_unknown_suite_fails(backend):
     rec = backend.get_run(rid)
     assert rec is not None
     assert rec.status == "failed"
+
+
+def test_live_runner_posts_to_target(backend):
+    tid = "t1"
+    rid = new_run_id()
+    backend.create_run(
+        AssuranceRunRecord(
+            run_id=rid,
+            tenant_id=tid,
+            status="created",
+            metadata={
+                "suite": "builtin-v0",
+                "target_url": "https://staging.example/v1/chat",
+            },
+        )
+    )
+    resp = MagicMock()
+    resp.status_code = 200
+    resp.text = "I'm sorry, I cannot help with that."
+    resp.is_success = True
+    with patch("ascp.assurance.runner.httpx.Client") as C:
+        C.return_value.__enter__.return_value.post.return_value = resp
+        out = execute_assurance_run(
+            runs=backend,
+            artifacts=backend,
+            audit=None,
+            tenant_id=tid,
+            run_id=rid,
+        )
+    assert out["mode"] == "live"
+    assert out["scenario_count"] >= 1
+    rec = backend.get_run(rid)
+    assert rec is not None
+    assert rec.metadata.get("runner") == "assurance-live-v1"
+    for row in rec.metadata["results"]:
+        assert row.get("http_status") == 200
+        assert row["heuristics"].get("possible_refusal") is True

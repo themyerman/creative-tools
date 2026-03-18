@@ -5,18 +5,25 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from typing import Any
 
+import httpx
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field
 
-from ascp.assurance import execute_builtin_stub_run, list_suite_ids
+from ascp.assurance import execute_assurance_run as run_assurance_pipeline, list_suite_ids
 from ascp.config import Settings
 from ascp.core.types import (
     AuditEvent,
     AuditEventType,
+    DecisionOutcome,
     PolicyEvaluationContext,
     PolicyRef,
     new_run_id,
+)
+from ascp.gateway.openai_proxy import (
+    evaluate_chat_completions_request,
+    extract_tool_names_from_openai_body,
+    forward_openai_chat_completions,
 )
 from ascp.policy import (
     ChainedPolicyEngine,
@@ -190,6 +197,150 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "correlation_id": decision.correlation_id,
         }
 
+    @app.post("/v1/tenants/{tenant_id}/gateway/v1/chat/completions")
+    async def gateway_openai_chat_completions(
+        tenant_id: str,
+        request: Request,
+        policy_id: str = "default",
+        policy_version: str = "v1",
+        workspace_id: str | None = None,
+        audit: bool = True,
+    ) -> Response:
+        """Policy check then forward to OpenAI-compatible ``ASCP_UPSTREAM_BASE_URL``."""
+        st = request.app.state.settings
+        b = backend(request)
+        body_any = await request.json()
+        if not isinstance(body_any, dict):
+            raise HTTPException(status_code=400, detail="JSON object body required")
+        body: dict[str, Any] = body_any
+        if body.get("stream") is True:
+            raise HTTPException(
+                status_code=400,
+                detail="ASCP gateway v0 does not support stream=true; set stream false or omit",
+            )
+        model_id = str(body.get("model") or "").strip()
+        if not model_id:
+            raise HTTPException(status_code=400, detail="model is required")
+        tool_names = extract_tool_names_from_openai_body(body)
+        decision = evaluate_chat_completions_request(
+            b,
+            tenant_id=tenant_id,
+            policy_id=policy_id,
+            policy_version=policy_version,
+            model_id=model_id,
+            tool_names=tool_names,
+            workspace_id=workspace_id,
+        )
+
+        def audit_blocked() -> None:
+            if audit:
+                b.append(
+                    AuditEvent(
+                        event_type=AuditEventType.GATEWAY_REQUEST,
+                        tenant_id=tenant_id,
+                        workspace_id=workspace_id,
+                        correlation_id=decision.correlation_id,
+                        payload={
+                            "path": "chat/completions",
+                            "outcome": "BLOCKED",
+                            "model_id": model_id,
+                            "violations": [v.model_dump() for v in decision.violations],
+                        },
+                    )
+                )
+
+        if decision.outcome == DecisionOutcome.BLOCK:
+            audit_blocked()
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "error": {
+                        "type": "policy_blocked",
+                        "message": "Request blocked by ASCP policy",
+                        "violations": [v.model_dump() for v in decision.violations],
+                        "correlation_id": decision.correlation_id,
+                    }
+                },
+            )
+
+        base = (st.upstream_base_url or "").strip()
+        if not base:
+            if audit:
+                b.append(
+                    AuditEvent(
+                        event_type=AuditEventType.GATEWAY_REQUEST,
+                        tenant_id=tenant_id,
+                        workspace_id=workspace_id,
+                        correlation_id=decision.correlation_id,
+                        payload={
+                            "path": "chat/completions",
+                            "outcome": "UPSTREAM_NOT_CONFIGURED",
+                            "model_id": model_id,
+                        },
+                    )
+                )
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "error": {
+                        "type": "upstream_not_configured",
+                        "message": "Set ASCP_UPSTREAM_BASE_URL (e.g. https://api.openai.com/v1)",
+                        "correlation_id": decision.correlation_id,
+                    }
+                },
+            )
+
+        try:
+            status, content, ct = forward_openai_chat_completions(
+                base_url=base,
+                api_key=st.upstream_api_key,
+                body=body,
+                timeout=float(st.gateway_timeout_seconds),
+            )
+        except httpx.RequestError as e:
+            if audit:
+                b.append(
+                    AuditEvent(
+                        event_type=AuditEventType.GATEWAY_REQUEST,
+                        tenant_id=tenant_id,
+                        workspace_id=workspace_id,
+                        correlation_id=decision.correlation_id,
+                        payload={
+                            "path": "chat/completions",
+                            "outcome": "UPSTREAM_ERROR",
+                            "model_id": model_id,
+                            "detail": str(e)[:500],
+                        },
+                    )
+                )
+            return JSONResponse(
+                status_code=502,
+                content={
+                    "error": {
+                        "type": "upstream_error",
+                        "message": str(e)[:500],
+                        "correlation_id": decision.correlation_id,
+                    }
+                },
+            )
+
+        if audit:
+            b.append(
+                AuditEvent(
+                    event_type=AuditEventType.GATEWAY_REQUEST,
+                    tenant_id=tenant_id,
+                    workspace_id=workspace_id,
+                    correlation_id=decision.correlation_id,
+                    payload={
+                        "path": "chat/completions",
+                        "outcome": "FORWARDED",
+                        "upstream_status": status,
+                        "model_id": model_id,
+                    },
+                )
+            )
+        return Response(content=content, status_code=status, media_type=ct)
+
     @app.post("/v1/tenants/{tenant_id}/assurance-runs")
     def create_assurance_run(
         tenant_id: str,
@@ -255,19 +406,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return out.model_dump()
 
     @app.post("/v1/tenants/{tenant_id}/assurance-runs/{run_id}/execute")
-    def execute_assurance_run(
+    def post_assurance_run_execute(
         tenant_id: str,
         run_id: str,
         request: Request,
     ) -> dict[str, Any]:
         b = backend(request)
+        st = request.app.state.settings
         try:
-            return execute_builtin_stub_run(
+            return run_assurance_pipeline(
                 runs=b,
                 artifacts=b,
                 audit=b,
                 tenant_id=tenant_id,
                 run_id=run_id,
+                default_target_authorization=st.assurance_target_default_authorization,
+                http_timeout=float(st.assurance_http_timeout_seconds),
             )
         except ValueError as e:
             msg = str(e)

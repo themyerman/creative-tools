@@ -39,11 +39,15 @@ YAML/JSON mapping validated by Pydantic; **`policy_document_from_yaml(text)`**. 
 
 ## Operator API (`ascp.api`)
 
-FastAPI: health, policy CRUD by version, model registration, **`POST .../evaluate`** (chain: trust + document), assurance run lifecycle + **`POST .../assurance-runs/{id}/execute`** (stub), **`GET /v1/assurance/suites`**. If **`ASCP_API_KEY`** is set, all routes except **`GET /health`** require the key. **`pip install 'ascp[api]'`**, **`ascp-serve`**.
+FastAPI: health, policy CRUD, models, **`POST .../evaluate`**, **`POST .../gateway/v1/chat/completions`** (policy then upstream forward), assurance runs + execute (stub or live via **`target_url`**), suites. Env: **`ASCP_UPSTREAM_BASE_URL`**, **`ASCP_UPSTREAM_API_KEY`**, **`ASCP_ASSURANCE_TARGET_AUTHORIZATION`**, timeouts. **`ASCP_API_KEY`** locks API except **`/health`**. **`ascp[api]`**, **`ascp-serve`**.
 
 ## Assurance (`ascp.assurance`)
 
-Versioned scenario suites (e.g. **`builtin-v0`**). **`execute_builtin_stub_run`** updates **`AssuranceRunStore`**, writes JSON report to **`ArtifactStore`** under **`assurance/{run_id}/report.json`**, appends **`ASSURANCE_RUN`** audit when a sink is provided.
+**`execute_assurance_run`**: if run metadata has **`target_url`**, POSTs each scenario (default OpenAI-shaped **`{model, messages}`**); else stub rows. Report JSON + **`ASSURANCE_RUN`** audit.
+
+## Gateway (`ascp.gateway`)
+
+**`evaluate_chat_completions_request`** + **`forward_openai_chat_completions`** — tool names from OpenAI **`tools[].function.name`**.
 
 ## Core types (`ascp.core.types`)
 

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from unittest.mock import MagicMock, patch
+
 import pytest
 
 pytest.importorskip("fastapi")
@@ -136,3 +138,88 @@ def test_assurance_runs_api(client):
     assert got.json()["status"] == "completed"
     listed = client.get(f"/v1/tenants/{tid}/assurance-runs")
     assert any(r["run_id"] == rid for r in listed.json()["runs"])
+
+
+@pytest.fixture
+def client_upstream(tmp_path):
+    settings = Settings(
+        database_url=f"sqlite:///{tmp_path / 'up.db'}",
+        artifact_root=str(tmp_path / "ua"),
+        upstream_base_url="https://api.fake-openai.com/v1",
+        upstream_api_key="sk-upstream",
+    )
+    app = create_app(settings)
+    with TestClient(app) as tc:
+        yield tc
+
+
+def test_gateway_blocks_unregistered_model(client_upstream):
+    tid = "tg1"
+    client_upstream.put(
+        f"/v1/tenants/{tid}/policies/default/versions/v1",
+        json={"schema_version": "1", "tools": {"mode": "open"}},
+    )
+    r = client_upstream.post(
+        f"/v1/tenants/{tid}/gateway/v1/chat/completions",
+        json={"model": "gpt-4", "messages": [{"role": "user", "content": "hi"}]},
+    )
+    assert r.status_code == 403
+    assert r.json()["error"]["type"] == "policy_blocked"
+
+
+def test_gateway_503_without_upstream(client):
+    tid = "tg2"
+    client.put(
+        f"/v1/tenants/{tid}/policies/default/versions/v1",
+        json={"schema_version": "1", "tools": {"mode": "open"}},
+    )
+    client.post(f"/v1/tenants/{tid}/models", json={"model_id": "gpt-4"})
+    r = client.post(
+        f"/v1/tenants/{tid}/gateway/v1/chat/completions",
+        json={"model": "gpt-4", "messages": [{"role": "user", "content": "hi"}]},
+    )
+    assert r.status_code == 503
+    assert r.json()["error"]["type"] == "upstream_not_configured"
+
+
+def test_gateway_forwards_when_upstream_configured(client_upstream):
+    tid = "tg3"
+    client_upstream.put(
+        f"/v1/tenants/{tid}/policies/default/versions/v1",
+        json={"schema_version": "1", "tools": {"mode": "open"}},
+    )
+    client_upstream.post(f"/v1/tenants/{tid}/models", json={"model_id": "gpt-4"})
+    fake = (200, b'{"id":"x","choices":[]}', "application/json")
+    with patch("ascp.api.app.forward_openai_chat_completions", return_value=fake):
+        r = client_upstream.post(
+            f"/v1/tenants/{tid}/gateway/v1/chat/completions?audit=false",
+            json={
+                "model": "gpt-4",
+                "messages": [{"role": "user", "content": "hello"}],
+            },
+        )
+    assert r.status_code == 200
+    assert r.json()["choices"] == []
+
+
+def test_assurance_live_via_api(client):
+    tid = "live-t"
+    cr = client.post(
+        f"/v1/tenants/{tid}/assurance-runs",
+        json={
+            "suite": "builtin-v0",
+            "metadata": {
+                "target_url": "https://target.example/chat",
+            },
+        },
+    )
+    rid = cr.json()["run_id"]
+    resp = MagicMock()
+    resp.status_code = 200
+    resp.text = "ok"
+    resp.is_success = True
+    with patch("ascp.assurance.runner.httpx.Client") as C:
+        C.return_value.__enter__.return_value.post.return_value = resp
+        ex = client.post(f"/v1/tenants/{tid}/assurance-runs/{rid}/execute")
+    assert ex.status_code == 200
+    assert ex.json()["mode"] == "live"
