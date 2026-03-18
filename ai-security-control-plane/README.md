@@ -6,6 +6,45 @@ Longer product vision (four pillars: gateway, red-team, RAG lab, supply chain) i
 
 ---
 
+## In plain English (for everyone)
+
+**What problem does this solve?**  
+Companies are shipping chatbots and “AI agents” that can call tools, read documents, and talk to users. That’s powerful—and easy to get wrong. ASCP is software that sits **beside or in front of** those systems to help you **control what’s allowed**, **see what happened**, and **test whether your app holds up** when someone tries to trick it or leak data.
+
+**Think of it like:**
+
+| Idea | Plain meaning |
+|------|----------------|
+| **Rules for your AI** | Only certain **models** you’ve approved. Only certain **tools** (e.g. “search OK,” “delete database not OK”). You write the rules; ASCP checks them. |
+| **A gate for chat traffic** | Your app can send chat requests **through ASCP** instead of straight to the AI vendor. If the request breaks the rules, it’s **blocked**; if not, it goes through—like a **bouncer** with a list. |
+| **A flight recorder** | Important decisions (allowed, blocked, who asked what at a high level) can be **logged** and **exported** so security or compliance can review later—not “spying,” but **evidence** you chose to keep. |
+| **Fire drills** | ASCP can run a **battery of tricky prompts** against a **staging copy** of your app (with your permission) and give you a **score**: did it refuse jailbreaks? Did it leak fake “secrets” in the test? Useful before every release. |
+| **“Did bad docs poison the answer?”** | A **simple lab** lets you load example documents (including a **planted bad one**) and ask: if someone searches like a user, does the **bad stuff** float to the top? It’s a **teaching aid**, not a full search engine—real RAG setups are more complex. |
+| **Fingerprints of dependencies** | You can **upload lockfiles or bill-of-materials files** so you have a **record of what was submitted** (hashes, copies). It’s a **starting point** for “what did we ship?” conversations—not a full supply-chain product by itself. |
+
+**Who is it for?**  
+Engineers who want **guardrails** without building everything from scratch; security or compliance folks who want **logs and repeatable checks**; leaders who want **confidence** that AI features aren’t a black box.
+
+**What it is *not*.**  
+It’s not a replacement for your **lawyer**, your **cloud security team**, or **human review** of model outputs. It doesn’t “make AI safe” by itself—it **helps you enforce the rules you choose** and **prove you tested what you said you would**.
+
+### How it interacts when it’s running (important context)
+
+People often ask: *Does ASCP watch all our network traffic? Do users send documents to it?* **Short answers: no, and only if you wire that in.**
+
+| Question | Plain answer |
+|----------|----------------|
+| **Does it monitor traffic passively?** | **No.** ASCP is not a tap on your firewall or a tool that silently reads everything on your network. If your app never talks to ASCP, ASCP sees **nothing**. |
+| **So how does chat get checked?** | **You choose to send chat through it.** Your backend (or client config) points at ASCP’s **gateway URL** instead of going straight to OpenAI (or another provider). ASCP applies your rules, then forwards allowed requests. **No redirect = no gateway involvement.** |
+| **Who sends what where?** | **Your servers** call ASCP for policy + proxy. **End-users** usually still talk to *your* app; your app is what calls the model—via ASCP if you set it up that way. |
+| **What about the “red team” / assurance stuff?** | You give ASCP a **staging URL** (a copy of your app you control). ASCP’s service **calls that URL** with test prompts—like a **robot tester** knocking on your door. It’s **outbound from ASCP to you**, not eavesdropping on real customers. |
+| **Do users upload documents to ASCP?** | **Not by default.** The **RAG lab** is where **you** (or a script) **upload example chunks** via the API to experiment with “what if a bad snippet were in the index?” Real user documents don’t flow into ASCP unless **you** build a pipeline that sends them—which this repo doesn’t do for you. |
+| **Supply chain / lockfiles?** | **You upload** those files (or your CI does) on purpose—again, **explicit API upload**, not automatic scraping of your laptop or GitHub. |
+
+**One-line summary:** ASCP is **opt-in plumbing** and **opt-in APIs**. You **turn the hoses** toward it for chat; you **push** test corpora and lockfiles when you want; you **point** assurance at a server **you** own. It does **not** sit in the background monitoring all traffic or all user documents unless **you** integrate it that way.
+
+---
+
 ## What you get today
 
 | Area | What it does |
