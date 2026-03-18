@@ -1,0 +1,87 @@
+{% extends "dashboard/base.html" %}
+{% block title %}{{ tenant_id }}{% endblock %}
+{% block content %}
+<p><a href="/dashboard">← All tenants</a></p>
+<h1 class="mono">{{ tenant_id }}</h1>
+
+<h2>Registered models</h2>
+<div class="card">
+  {% if models %}
+  <ul class="tenants">
+    {% for m in models %}<li class="mono">{{ m }}</li>{% endfor %}
+  </ul>
+  {% else %}<div class="empty">No models registered.</div>{% endif %}
+</div>
+
+<h2>Policy <span class="mono">default@v1</span></h2>
+<div class="card">
+  {% if policy %}
+  {% set tools = policy.get('tools', {}) %}
+  <p><strong>Tools mode:</strong> {{ tools.get('mode', '—') }}</p>
+  {% if tools.get('allow') %}<p><strong>Allow:</strong> <span class="mono">{{ tools.allow | join(', ') }}</span></p>{% endif %}
+  {% if tools.get('deny') %}<p><strong>Deny:</strong> <span class="mono">{{ tools.deny | join(', ') }}</span></p>{% endif %}
+  <details><summary>Raw JSON</summary><pre class="mono">{{ policy_json }}</pre></details>
+  {% else %}<div class="empty">No policy document at default/v1.</div>{% endif %}
+</div>
+
+<h2>Assurance runs (recent)</h2>
+<div class="card">
+  {% if runs %}
+  <table>
+    <thead><tr><th>Run ID</th><th>Status</th><th>Suite</th><th>Score</th><th>CI</th></tr></thead>
+    <tbody>
+      {% for r in runs %}
+      <tr>
+        <td class="mono" style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;">{{ r.run_id[:16] }}…</td>
+        <td>{{ r.status }}</td>
+        <td>{{ r.suite }}</td>
+        <td>{% if r.score is not none %}{{ r.score }}{% else %}—{% endif %}</td>
+        <td>
+          {% if r.ci_passed is true %}<span class="pill pill-ok">pass</span>
+          {% elif r.ci_passed is false %}<span class="pill pill-bad">fail</span>
+          {% else %}—{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<div class="empty">No assurance runs.</div>{% endif %}
+</div>
+
+<h2>Supply chain (lockfiles)</h2>
+<div class="card">
+  {% if lockfiles %}
+  <table>
+    <thead><tr><th>File</th><th>SHA-256</th><th>Size</th></tr></thead>
+    <tbody>
+      {% for lf in lockfiles %}
+      <tr>
+        <td class="mono">{{ lf.filename }}</td>
+        <td class="mono" style="font-size: 11px;">{{ lf.sha256_hex[:16] }}…</td>
+        <td>{{ lf.size_bytes }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<div class="empty">No lockfiles uploaded.</div>{% endif %}
+</div>
+
+<h2>Recent audit events</h2>
+<div class="card">
+  {% if audit_rows %}
+  <table>
+    <thead><tr><th>Time</th><th>Type</th><th>Summary</th></tr></thead>
+    <tbody>
+      {% for row in audit_rows %}
+      <tr>
+        <td class="mono" style="white-space: nowrap;">{{ row.at }}</td>
+        <td>{{ row.kind }}</td>
+        <td class="mono" style="font-size: 12px;">{{ row.summary }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p style="margin-bottom:0;"><a href="/v1/tenants/{{ tenant_q }}/audit/export.jsonl">Download full export (API)</a> — use Bearer / tenant token.</p>
+  {% else %}<div class="empty">No audit events for this tenant.</div>{% endif %}
+</div>
+{% endblock %}

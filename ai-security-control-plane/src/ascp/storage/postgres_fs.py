@@ -327,6 +327,24 @@ class PostgresFsBackend:
         self.put_bytes(key, content)
         return {"id": sid, "sha256": sha, "filename": filename, "artifact_key": key}
 
+    def list_known_tenant_ids(self, *, limit: int = 200) -> list[str]:
+        lim = max(1, min(limit, 500))
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT tenant_id FROM (
+                    SELECT DISTINCT tenant_id FROM assurance_runs
+                    UNION SELECT DISTINCT tenant_id FROM trust_registry
+                    UNION SELECT DISTINCT tenant_id FROM policies
+                    UNION SELECT DISTINCT tenant_id FROM tenant_api_keys
+                    UNION SELECT DISTINCT tenant_id FROM supply_lockfiles
+                    UNION SELECT DISTINCT tenant_id FROM rag_chunks
+                ) AS u ORDER BY tenant_id LIMIT %s
+                """,
+                (lim,),
+            ).fetchall()
+        return [str(r["tenant_id"]) for r in rows]
+
     def list_supply_lockfiles(self, tenant_id: str, *, limit: int = 50) -> list[dict[str, Any]]:
         with self._connect() as conn:
             rows = conn.execute(

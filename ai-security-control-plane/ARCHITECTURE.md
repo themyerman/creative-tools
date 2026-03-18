@@ -42,7 +42,7 @@ YAML/JSON mapping validated by Pydantic; **`policy_document_from_yaml(text)`**. 
 
 ## Operator API (`ascp.api`)
 
-FastAPI: admin tenant API keys, supply-chain uploads, RAG corpora/eval, **audit NDJSON export**, gateway **sync + streaming**, assurance **scoring / fail_ci / replay**, etc. **`ASCP_API_KEY`** (admin) or per-tenant **`ascp_ten_*`** tokens. **`ASCP_AUDIT_WEBHOOK_URL`**. See README + **`docs/OBSERVABILITY.md`**.
+FastAPI: admin tenant API keys, supply-chain uploads, RAG corpora/eval, **audit NDJSON export**, gateway **sync + streaming**, assurance **scoring / fail_ci / replay**, **HTML dashboard** at **`/dashboard`** (Jinja2; HTTP Basic = **`ASCP_API_KEY`** when set), etc. Admin or per-tenant **`ascp_ten_*`** tokens for JSON API. **`ASCP_AUDIT_WEBHOOK_URL`**. See README + **`docs/OBSERVABILITY.md`**.
 
 ## Assurance (`ascp.assurance`)
 

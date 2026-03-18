@@ -31,6 +31,7 @@ from ascp.policy import (
     TrustRegistryPolicyEngine,
 )
 from ascp.storage import AssuranceRunRecord
+from ascp.api.dashboard_routes import register_dashboard
 from ascp.storage.factory import create_backend
 
 
@@ -80,6 +81,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
         path = (request.url.path.rstrip("/") or "/")
         if path == "/health":
+            return await call_next(request)
+        if path == "/dashboard" or path.startswith("/dashboard/"):
             return await call_next(request)
         st = request.app.state.settings
         admin_key = getattr(st, "api_key", None)
@@ -643,6 +646,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             headers={"Content-Disposition": f'attachment; filename="audit-{tenant_id}.jsonl"'},
         )
 
+    register_dashboard(app)
     return app
 
 

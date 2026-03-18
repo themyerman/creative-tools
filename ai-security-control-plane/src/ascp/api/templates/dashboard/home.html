@@ -1,0 +1,19 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Tenants{% endblock %}
+{% block content %}
+<h1>Tenants</h1>
+<p class="muted" style="color: var(--muted); margin-top: -0.5rem;">
+  Tenants discovered from policies, models, assurance runs, API keys, supply uploads, and RAG corpora.
+</p>
+{% if tenant_links %}
+<div class="card">
+  <ul class="tenants">
+    {% for t in tenant_links %}
+    <li><a href="/dashboard/tenant/{{ t.path }}">{{ t.id }}</a></li>
+    {% endfor %}
+  </ul>
+</div>
+{% else %}
+<div class="card empty">No tenant activity yet. Use the API to register models, set policies, or run assurance.</div>
+{% endif %}
+{% endblock %}
