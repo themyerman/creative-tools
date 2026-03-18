@@ -7,13 +7,26 @@
 </p>
 <h2 style="margin-top: 1.25rem;">Tenants</h2>
 <p class="section-intro">
-  Each tenant is an isolated workspace. Below are tenants ASCP has seen (from policies, registered models, assurance runs, API keys, uploaded lockfiles, or RAG corpora)—pick one to inspect its setup.
+  Each row is a tenant ASCP has seen (policies, models, runs, keys, lockfiles, or RAG). <strong>Readiness</strong> is the same 0–100 average as on the tenant page (five pillars). Sorted with <strong>lowest scores first</strong> so gaps are easy to spot.
 </p>
-{% if tenant_links %}
+{% if tenant_rows %}
 <div class="card">
-  <ul class="tenants">
-    {% for t in tenant_links %}
-    <li><a href="/dashboard/tenant/{{ t.path }}">{{ t.id }}</a></li>
+  <ul class="tenants tenant-summary">
+    {% for t in tenant_rows %}
+    <li>
+      <span class="tenant-summary-name"><a href="/dashboard/tenant/{{ t.path }}">{{ t.id }}</a></span>
+      <span class="tenant-summary-score">
+        <span class="tenant-summary-num">{{ t.overall }}</span>
+        <span class="tenant-summary-den">/ 100</span>
+        {% if t.overall_band == 'strong' %}
+        <span class="pill pill-ok">Strong</span>
+        {% elif t.overall_band == 'partial' %}
+        <span class="pill pill-warn">Partial</span>
+        {% else %}
+        <span class="pill pill-bad">Gaps</span>
+        {% endif %}
+      </span>
+    </li>
     {% endfor %}
   </ul>
 </div>

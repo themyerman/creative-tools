@@ -62,6 +62,7 @@ People often ask: *Does ASCP watch all our network traffic? Do users send docume
 | **RAG lab (stub)** | **`PUT .../rag/corpora/{corpus_id}`** with **`chunks: [{chunk_id, text, is_poison}]`**. **`POST .../rag/corpora/{id}/evaluate`** keyword overlap “retrieval” + **`poison_in_top_k`**. |
 | **Observability** | **`GET .../audit/export.jsonl`** (tenant-filtered NDJSON). Optional **`ASCP_AUDIT_WEBHOOK_URL`** POST on each audit append. See **[docs/OBSERVABILITY.md](./docs/OBSERVABILITY.md)**. |
 | **Web dashboard** | **`GET /dashboard`** — tenant list and per-tenant overview (models, default policy, assurance runs, lockfiles, recent audit). When **`ASCP_API_KEY`** is set, use **HTTP Basic** (any username, password = API key). Skips JSON API auth middleware so the browser can prompt once. |
+| **Demo tenants** | **`PYTHONPATH=src python scripts/seed_demo_tenants.py`** — seeds **`demo-fragile`** (super weak), **`demo-mixed`** (partial), **`demo-golden`** (strong) for the same DB as the API. |
 
 **Roadmap:** S3 artifacts, full SBOM diffing, richer RAG/vector eval, richer dashboard, OTLP native export.
 

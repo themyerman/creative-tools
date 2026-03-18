@@ -1,5 +1,7 @@
 """Dashboard HTML routes."""
 
+import re
+
 from ascp.api.app import create_app
 from ascp.api.dashboard_routes import compute_tenant_posture
 from ascp.config import Settings
@@ -16,6 +18,34 @@ def test_dashboard_open_when_no_api_key(tmp_path):
         r = c.get("/dashboard")
     assert r.status_code == 200
     assert b"Tenants" in r.content
+
+
+def test_dashboard_home_shows_tenant_readiness_scores(tmp_path):
+    settings = Settings(
+        database_url=f"sqlite:///{tmp_path / 'dh.db'}",
+        artifact_root=str(tmp_path / "ah"),
+    )
+    app = create_app(settings)
+    with TestClient(app) as c:
+        c.put(
+            "/v1/tenants/weak/policies/default/versions/v1",
+            json={"schema_version": "1", "tools": {"mode": "open"}},
+        )
+        c.put(
+            "/v1/tenants/strong/policies/default/versions/v1",
+            json={"schema_version": "1", "tools": {"mode": "open"}},
+        )
+        c.post("/v1/tenants/strong/models", json={"model_id": "gpt-4o"})
+        c.post("/v1/tenants/strong/models", json={"model_id": "gpt-4o-mini"})
+        r = c.get("/dashboard")
+    assert r.status_code == 200
+    assert b"/ 100" in r.content
+    assert b"weak" in r.content and b"strong" in r.content
+    m = re.search(rb'<ul class="tenants tenant-summary">(.*?)</ul>', r.content, re.DOTALL)
+    assert m
+    ul = m.group(1)
+    tenants_order = re.findall(rb'<a href="/dashboard/tenant/[^"]+">([^<]+)</a>', ul)
+    assert tenants_order == [b"weak", b"strong"]
 
 
 def test_dashboard_requires_basic_when_api_key_set(tmp_path):

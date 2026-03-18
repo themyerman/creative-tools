@@ -243,6 +243,47 @@ def _audit_preview(b: Any, tenant_id: str, limit: int = 20) -> list[dict[str, An
     return rows
 
 
+def _gather_tenant_dashboard_snapshot(b: Any, tenant_id: str) -> dict[str, Any]:
+    ref = PolicyRef(tenant_id=tenant_id, policy_id="default", version="v1")
+    policy = b.get_policy_document(ref)
+    policy_json = json.dumps(policy, indent=2, default=str) if policy else ""
+    models = b.list_models(tenant_id)
+    runs_raw = b.list_runs(tenant_id, limit=25)
+    runs: list[dict[str, Any]] = []
+    for r in runs_raw:
+        md = dict(r.metadata)
+        sc = md.get("scoring") or {}
+        runs.append(
+            {
+                "run_id": r.run_id,
+                "status": r.status,
+                "suite": md.get("suite", "—"),
+                "score": sc.get("score"),
+                "ci_passed": sc.get("ci_passed"),
+            }
+        )
+    lockfiles = getattr(b, "list_supply_lockfiles", lambda *_a, **_k: [])(tenant_id, limit=10)
+    audit_rows = _audit_preview(b, tenant_id, limit=80)
+    posture = compute_tenant_posture(
+        models=models,
+        policy=policy,
+        runs=runs,
+        lockfile_count=len(lockfiles),
+        audit_rows=audit_rows[:40],
+    )
+    return {
+        "tenant_id": tenant_id,
+        "tenant_q": quote(tenant_id, safe=""),
+        "models": models,
+        "policy": policy,
+        "policy_json": policy_json,
+        "runs": runs,
+        "lockfiles": lockfiles,
+        "audit_rows": audit_rows[:18],
+        "posture": posture,
+    }
+
+
 def register_dashboard(app: Any) -> None:
     @app.get("/dashboard", response_class=HTMLResponse)
     def dashboard_home(
@@ -251,11 +292,23 @@ def register_dashboard(app: Any) -> None:
         b = request.app.state.backend
         list_fn = getattr(b, "list_known_tenant_ids", None)
         tenants: list[str] = list_fn(limit=200) if callable(list_fn) else []
-        tenant_links = [{"id": t, "path": quote(t, safe="")} for t in tenants]
+        tenant_rows: list[dict[str, Any]] = []
+        for tid in tenants:
+            snap = _gather_tenant_dashboard_snapshot(b, tid)
+            p = snap["posture"]
+            tenant_rows.append(
+                {
+                    "id": tid,
+                    "path": quote(tid, safe=""),
+                    "overall": p["overall"],
+                    "overall_band": p["overall_band"],
+                }
+            )
+        tenant_rows.sort(key=lambda x: (x["overall"], x["id"]))
         return _TEMPLATES.TemplateResponse(
             request,
             "dashboard/home.html",
-            {"tenant_links": tenant_links},
+            {"tenant_rows": tenant_rows},
         )
 
     @app.get("/dashboard/tenant/{tenant_id}", response_class=HTMLResponse)
@@ -265,46 +318,5 @@ def register_dashboard(app: Any) -> None:
         _auth: None = Depends(_require_dashboard),
     ) -> Any:
         b = request.app.state.backend
-        ref = PolicyRef(tenant_id=tenant_id, policy_id="default", version="v1")
-        policy = b.get_policy_document(ref)
-        policy_json = json.dumps(policy, indent=2, default=str) if policy else ""
-        models = b.list_models(tenant_id)
-        runs_raw = b.list_runs(tenant_id, limit=25)
-        runs: list[dict[str, Any]] = []
-        for r in runs_raw:
-            md = dict(r.metadata)
-            sc = md.get("scoring") or {}
-            runs.append(
-                {
-                    "run_id": r.run_id,
-                    "status": r.status,
-                    "suite": md.get("suite", "—"),
-                    "score": sc.get("score"),
-                    "ci_passed": sc.get("ci_passed"),
-                }
-            )
-        lockfiles = getattr(b, "list_supply_lockfiles", lambda *_a, **_k: [])(tenant_id, limit=10)
-        audit_rows = _audit_preview(b, tenant_id, limit=80)
-        posture = compute_tenant_posture(
-            models=models,
-            policy=policy,
-            runs=runs,
-            lockfile_count=len(lockfiles),
-            audit_rows=audit_rows[:40],
-        )
-        audit_rows_display = audit_rows[:18]
-        return _TEMPLATES.TemplateResponse(
-            request,
-            "dashboard/tenant.html",
-            {
-                "tenant_id": tenant_id,
-                "tenant_q": quote(tenant_id, safe=""),
-                "models": models,
-                "policy": policy,
-                "policy_json": policy_json,
-                "runs": runs,
-                "lockfiles": lockfiles,
-                "audit_rows": audit_rows_display,
-                "posture": posture,
-            },
-        )
+        snap = _gather_tenant_dashboard_snapshot(b, tenant_id)
+        return _TEMPLATES.TemplateResponse(request, "dashboard/tenant.html", snap)
