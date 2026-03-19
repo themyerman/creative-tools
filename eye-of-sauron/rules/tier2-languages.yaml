@@ -111,7 +111,16 @@
       }
     },
     ".dockerfile": {
-      "specific": {},
+      "specific": {
+        "Dockerfile": {
+          "DOCKER_ROOT_USER": {
+            "^\\s*USER\\s+root\\b": "non-root runtime user"
+          },
+          "DOCKER_REMOTE_ADD": {
+            "^\\s*ADD\\s+https?://": "prefer COPY with controlled build context"
+          }
+        }
+      },
       "general": {
         "high": [
           {

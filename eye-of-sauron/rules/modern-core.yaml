@@ -13,7 +13,35 @@
   ],
   "rule_set": {
     ".py": {
-      "specific": {},
+      "specific": {
+        "settings.py": {
+          "PY_DEBUG_TRUE": {
+            "\\bDEBUG\\s*=\\s*True\\b": "DEBUG=False"
+          },
+          "PY_DEV_ENV_LITERAL": {
+            "\\b(ENV|ENVIRONMENT|MODE)\\s*=\\s*['\\\"]dev(elopment)?['\\\"]": "production-like environment setting"
+          },
+          "PY_PLACEHOLDER_SECRET": {
+            "\\b(SECRET_KEY|API_KEY|TOKEN)\\s*=\\s*['\\\"](changeme|replace-me|todo|default|secret)['\\\"]": "non-placeholder secret value"
+          }
+        },
+        "main.py": {
+          "PY_UVICORN_RELOAD_TRUE": {
+            "uvicorn\\.run\\(.*reload\\s*=\\s*True": "reload=False outside local development"
+          },
+          "PY_ALLOW_ORIGINS_WILDCARD": {
+            "allow_origins\\s*=\\s*\\[\\s*['\\\"]\\*['\\\"]\\s*\\]": "restricted CORS origins"
+          }
+        },
+        "openai_proxy.py": {
+          "PY_TLS_VERIFY_FALSE": {
+            "verify\\s*=\\s*False": "TLS verification enabled"
+          },
+          "PY_HTTP_URL_LITERAL": {
+            "['\\\"]http://": "https:// URL usage"
+          }
+        }
+      },
       "general": {
         "high": [
           {
@@ -200,7 +228,13 @@
       }
     },
     ".yml": {
-      "specific": {},
+      "specific": {
+        "ci.yml": {
+          "YML_GHA_WRITE_ALL_PERMISSIONS": {
+            "^\\s*permissions\\s*:\\s*write-all\\b": "least-privilege permissions"
+          }
+        }
+      },
       "general": {
         "high": [],
         "medium": [],
@@ -208,7 +242,13 @@
       }
     },
     ".yaml": {
-      "specific": {},
+      "specific": {
+        "ci.yaml": {
+          "YAML_GHA_WRITE_ALL_PERMISSIONS": {
+            "^\\s*permissions\\s*:\\s*write-all\\b": "least-privilege permissions"
+          }
+        }
+      },
       "general": {
         "high": [],
         "medium": [],
