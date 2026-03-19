@@ -167,6 +167,30 @@ class CheckerTests(unittest.TestCase):
             self.assertFalse(errors)
             self.assertIn(checker._finding_fingerprint(finding), fingerprints)
 
+    def test_parse_semgrep_payload(self):
+        payload = json.dumps(
+            {
+                "results": [
+                    {
+                        "check_id": "python.lang.security.audit.eval",
+                        "path": "/tmp/src/app.py",
+                        "start": {"line": 5},
+                        "extra": {
+                            "severity": "ERROR",
+                            "message": "Avoid eval",
+                            "lines": "eval(user_input)",
+                            "metadata": {"tags": ["security"], "cwe": "CWE-95"},
+                        },
+                    }
+                ]
+            }
+        )
+        findings, errors = checker.parse_semgrep_json_payload(payload)
+        self.assertFalse(errors)
+        self.assertEqual(len(findings), 1)
+        self.assertEqual(findings[0].severity, "high")
+        self.assertTrue(findings[0].rule_id.startswith("SEMGREP::"))
+
 
 if __name__ == "__main__":
     unittest.main()

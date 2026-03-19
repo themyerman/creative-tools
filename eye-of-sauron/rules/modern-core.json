@@ -1,0 +1,40 @@
+{
+  "extensions": [".py", ".ts", ".tsx", ".java", ".go", ".rb", ".sh", ".yml", ".yaml", ".tf"],
+  "rule_set": {
+    ".py": {
+      "specific": {},
+      "general": {
+        "high": [
+          {"id": "PY_EVAL_EXEC", "pattern": "\\b(eval|exec)\\(", "description": "Dynamic execution in Python.", "remediation": "Avoid eval/exec on untrusted input.", "tags": ["injection", "rce"], "cwe": "CWE-95", "confidence": "high"},
+          {"id": "PY_SUBPROCESS_SHELL_TRUE", "pattern": "subprocess\\.(run|Popen|call|check_call|check_output)\\(.*shell\\s*=\\s*True", "description": "subprocess with shell=True can enable command injection.", "remediation": "Pass argument arrays and keep shell=False.", "tags": ["injection", "command"], "cwe": "CWE-78", "confidence": "high"},
+          {"id": "PY_INSECURE_TLS_VERIFY_FALSE", "pattern": "verify\\s*=\\s*False", "description": "TLS verification disabled.", "remediation": "Enable certificate validation.", "tags": ["tls"], "cwe": "CWE-295", "confidence": "medium"}
+        ],
+        "medium": [
+          {"id": "PY_PICKLE_LOADS", "pattern": "pickle\\.loads?\\(", "description": "Unsafe deserialization via pickle."},
+          {"id": "PY_YAML_LOAD", "pattern": "yaml\\.load\\(", "description": "Potential unsafe YAML loading."}
+        ],
+        "low": []
+      }
+    },
+    ".ts": {
+      "specific": {},
+      "general": {
+        "high": [
+          {"id": "TS_EVAL", "pattern": "\\beval\\(", "description": "Dynamic eval in TS/JS."},
+          {"id": "TS_NEW_FUNCTION", "pattern": "new\\s+Function\\(", "description": "Dynamic function construction."},
+          {"id": "TS_CHILD_PROCESS_EXEC", "pattern": "child_process\\.(exec|spawn)\\(", "description": "Command execution API used."}
+        ],
+        "medium": [{"id": "TS_INSECURE_TLS", "pattern": "rejectUnauthorized\\s*:\\s*false", "description": "TLS verification disabled."}],
+        "low": []
+      }
+    },
+    ".tsx": {"specific": {}, "general": {"high": [{"id": "TSX_EVAL", "pattern": "\\beval\\(", "description": "Dynamic eval in TSX."}], "medium": [], "low": []}},
+    ".java": {"specific": {}, "general": {"high": [{"id": "JAVA_RUNTIME_EXEC", "pattern": "Runtime\\.getRuntime\\(\\)\\.exec\\(", "description": "Command execution sink."}, {"id": "JAVA_OBJECT_INPUT_STREAM", "pattern": "ObjectInputStream\\s*\\(", "description": "Potential unsafe deserialization."}], "medium": [{"id": "JAVA_WEAK_HASH", "pattern": "MessageDigest\\.getInstance\\(\\\"(MD5|SHA-1)\\\"\\)", "description": "Weak hashing algorithm."}], "low": []}},
+    ".go": {"specific": {}, "general": {"high": [{"id": "GO_OS_EXEC", "pattern": "\\bexec\\.Command\\(", "description": "Command execution sink."}, {"id": "GO_INSECURE_SKIP_VERIFY", "pattern": "InsecureSkipVerify\\s*:\\s*true", "description": "TLS verification disabled."}], "medium": [], "low": []}},
+    ".rb": {"specific": {}, "general": {"high": [{"id": "RB_EVAL", "pattern": "\\beval\\(", "description": "Dynamic eval in Ruby."}, {"id": "RB_OPEN3", "pattern": "Open3\\.(popen|capture)", "description": "Shell/process execution path."}], "medium": [], "low": []}},
+    ".sh": {"specific": {}, "general": {"high": [{"id": "SH_CURL_PIPE_SHELL", "pattern": "curl\\s+.*\\|\\s*(sh|bash)", "description": "Piping remote scripts to shell."}, {"id": "SH_WGET_PIPE_SHELL", "pattern": "wget\\s+.*\\|\\s*(sh|bash)", "description": "Piping remote scripts to shell."}], "medium": [{"id": "SH_RM_RF_VAR", "pattern": "rm\\s+-rf\\s+\\$[{(]?[A-Za-z_]", "description": "Potential dangerous recursive delete with variable."}], "low": []}},
+    ".yml": {"specific": {}, "general": {"high": [], "medium": [], "low": []}},
+    ".yaml": {"specific": {}, "general": {"high": [], "medium": [], "low": []}},
+    ".tf": {"specific": {}, "general": {"high": [{"id": "TF_PUBLIC_0_0_0_0", "pattern": "0\\.0\\.0\\.0/0", "description": "Open CIDR found in Terraform config."}], "medium": [], "low": []}}
+  }
+}

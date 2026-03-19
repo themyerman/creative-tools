@@ -7,6 +7,7 @@ import fnmatch
 import importlib.util
 import json
 import re
+import subprocess
 import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -28,6 +29,14 @@ except ModuleNotFoundError:
     modern_module = importlib.util.module_from_spec(modern_spec)
     modern_spec.loader.exec_module(modern_module)
     MODERN_RULES = modern_module.MODERN_RULES
+try:
+    from rules_loader import load_rule_packs
+except ModuleNotFoundError:
+    rules_loader_path = Path(__file__).resolve().parent / "rules_loader.py"
+    loader_spec = importlib.util.spec_from_file_location("eye_rules_loader_runtime", rules_loader_path)
+    loader_module = importlib.util.module_from_spec(loader_spec)
+    loader_spec.loader.exec_module(loader_module)
+    load_rule_packs = loader_module.load_rule_packs
 
 VALID_SEVERITIES = ("high", "medium", "low", "specific")
 DEFAULT_EXCLUDE_DIRS = {".git", ".hg", ".svn", "node_modules", "vendor", "__pycache__"}
@@ -153,6 +162,21 @@ def parse_args(argv):
         "--write-baseline",
         default="",
         help="Write baseline JSON to this file after scanning.",
+    )
+    parser.add_argument(
+        "--rule-packs-dir",
+        default=str(Path(__file__).resolve().parent / "rules"),
+        help="Directory containing JSON rule packs.",
+    )
+    parser.add_argument(
+        "--use-semgrep",
+        action="store_true",
+        help="Run Semgrep and merge findings (if semgrep CLI is available).",
+    )
+    parser.add_argument(
+        "--semgrep-config",
+        default="auto",
+        help="Semgrep config to use with --use-semgrep (for example: auto, p/owasp-top-ten).",
     )
     return parser.parse_args(argv)
 
@@ -507,10 +531,70 @@ def render_sarif(result):
     return json.dumps(payload, indent=2, sort_keys=True)
 
 
+def parse_semgrep_json_payload(payload_text):
+    """Parse semgrep JSON output and convert to local findings."""
+    try:
+        payload = json.loads(payload_text)
+    except Exception as exc:
+        return [], [f"Unable to parse Semgrep output: {exc}"]
+    results = payload.get("results", [])
+    findings = []
+    for item in results:
+        path = item.get("path", "")
+        start = item.get("start", {}) or {}
+        extra = item.get("extra", {}) or {}
+        severity = (extra.get("severity") or "WARNING").upper()
+        mapped = {"ERROR": "high", "WARNING": "medium", "INFO": "low"}.get(severity, "medium")
+        rule_id = item.get("check_id", "SEMGREP_RULE")
+        message = extra.get("message", "")
+        lines = extra.get("lines", "") or ""
+        metadata = extra.get("metadata", {}) or {}
+        finding = Finding(
+            file=str(path),
+            line=int(start.get("line") or 1),
+            severity=mapped,
+            rule_id=f"SEMGREP::{rule_id}",
+            pattern=rule_id,
+            snippet=(lines.splitlines()[0] if lines else message)[:140],
+            message=message,
+            description=metadata.get("short_description", ""),
+            remediation=metadata.get("fix", ""),
+            tags=metadata.get("tags", []),
+            cwe=str(metadata.get("cwe", "")),
+            confidence="high",
+        )
+        findings.append(finding)
+    return findings, []
+
+
+def run_semgrep_scan(topdir, semgrep_config):
+    """Run semgrep scan and return findings plus errors."""
+    cmd = [
+        "semgrep",
+        "scan",
+        "--config",
+        semgrep_config,
+        "--json",
+        str(topdir),
+    ]
+    try:
+        result = subprocess.run(cmd, text=True, capture_output=True, check=False)
+    except FileNotFoundError:
+        return [], ["Semgrep not found in PATH; install semgrep or run without --use-semgrep."]
+    if result.returncode not in (0, 1):
+        err = result.stderr.strip() or result.stdout.strip() or "Unknown semgrep failure"
+        return [], [f"Semgrep scan failed: {err}"]
+    findings, parse_errors = parse_semgrep_json_payload(result.stdout)
+    return findings, parse_errors
+
+
 def main(argv=None):
     """CLI entrypoint."""
     args = parse_args(argv or sys.argv[1:])
     runtime_rules = merge_rule_configs(copy.deepcopy(DEFAULT_RULES), copy.deepcopy(MODERN_RULES))
+    pack_rules, pack_errors = load_rule_packs(args.rule_packs_dir)
+    if pack_rules:
+        runtime_rules = merge_rule_configs(runtime_rules, pack_rules)
 
     if args.quick:
         active_levels = ["high"]
@@ -538,7 +622,7 @@ def main(argv=None):
         max_findings=max(0, args.max_findings),
         allowed_extensions=allowed_extensions,
     )
-    result.compile_errors.extend(suppression_errors + baseline_errors)
+    result.compile_errors.extend(pack_errors + suppression_errors + baseline_errors)
     filtered_findings = []
     for finding in result.findings:
         if is_suppressed(finding, suppressions):
@@ -547,6 +631,11 @@ def main(argv=None):
             continue
         filtered_findings.append(finding)
     result.findings = filtered_findings
+
+    if args.use_semgrep:
+        semgrep_findings, semgrep_errors = run_semgrep_scan(args.topdir, args.semgrep_config)
+        result.findings.extend(semgrep_findings)
+        result.compile_errors.extend(semgrep_errors)
 
     if args.write_baseline:
         write_baseline(args.write_baseline, result.findings)

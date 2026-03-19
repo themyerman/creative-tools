@@ -1,0 +1,36 @@
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Test and coverage artifacts
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Build and packaging artifacts
+build/
+dist/
+*.egg-info/
+
+# Local scanner output artifacts
+baseline.json
+*.baseline.json
+scan-results.json
+scan-results.sarif
+*.sarif
+*.tmp.json
+
+# Local suppression/override files (keep examples tracked)
+*.local.suppressions.txt
+
+# Editor/OS noise
+.DS_Store
+.idea/
+.vscode/
