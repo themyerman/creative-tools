@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parents[1]
-CONF_PATH = BASE_DIR / "conf.py"
+CONF_PATH = BASE_DIR / "eye_of_sauron" / "conf.py"
 
 spec = importlib.util.spec_from_file_location("eye_of_sauron_conf_mod", CONF_PATH)
 eye_conf_mod = importlib.util.module_from_spec(spec)

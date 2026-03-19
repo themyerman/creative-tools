@@ -1,17 +1,11 @@
 """Tests for external YAML rule-pack loader."""
 
-import importlib.util
 import json
 import tempfile
 import unittest
 from pathlib import Path
 
-BASE_DIR = Path(__file__).resolve().parents[1]
-LOADER_PATH = BASE_DIR / "rules_loader.py"
-
-spec = importlib.util.spec_from_file_location("eye_rules_loader_mod", LOADER_PATH)
-rules_loader = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(rules_loader)
+from eye_of_sauron import rules_loader
 
 
 class RuleLoaderTests(unittest.TestCase):

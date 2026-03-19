@@ -1,144 +1,151 @@
 # eye-of-sauron
 
-Security-pattern scanner for legacy and modern codebases.
+Security-pattern scanner for legacy and modern codebases. It walks source files, matches YAML-defined (and legacy `conf`) rules, and reports in **text**, **JSON**, or **SARIF**. Optional **Semgrep** merges in as a second engine.
 
-## What is here
+---
 
-- `checker.py`: command-line scanner that walks configured folders and reports matching rule violations.
-- `conf.py`: rule definitions grouped by extension and severity (`high`, `medium`, `low`), plus specific-file checks.
-- `rules/`: external YAML rule packs (`modern-core.yaml`, `secrets.yaml`, `tier2-languages.yaml`) plus `schema.yaml`.
-- `rules_loader.py`: YAML rule-pack loader with lightweight schema validation.
+## Install
 
-## Plain-English overview
+| How | Command |
+|-----|---------|
+| **Editable** (hack on code, get the CLI) | `pip install -e .` (from this directory; needs a recent **pip** / **setuptools**) |
+| **Normal** | `pip install .` |
+| **Dev deps file** | `pip install -r requirements-dev.txt` (PyYAML only; use with `python -m unittest` from checkout) |
+| **No install** | `cd` here and use `python -m eye_of_sauron …` or `python checker.py …` |
 
-- Think of `eye-of-sauron` as a spell-checker for risky code patterns.
-- It scans your code files, looks for known bad/suspicious patterns, and prints a report.
-- It does not change your code; it only reads files and reports what it finds.
-- You can run it in simple text mode for humans or JSON/SARIF mode for tools and CI.
-- You can tell it what to scan (folders, language profile) and how strict to be (`--fail-on`).
-- It writes a run log into `logs/` with a unique file name every time.
+After install, the CLI is **`eye-of-sauron`** (hyphen). Rule packs ship inside the **`eye_of_sauron`** package (`eye_of_sauron/rules/*.yaml`); override with `--rule-packs-dir` if you maintain a fork.
 
-### Specific vs General rules (simple version)
+**Requirements:** Python **3.9+**, **PyYAML** (declared in `pyproject.toml`).
 
-- `specific` rules are for known files (example: `settings.py`, `Dockerfile`) where you want strict policy checks.
-- `general` rules are broad pattern checks for all files of a language (example: `eval(...)`, `verify=False`, hardcoded keys).
-- Use `specific` when you care about one file's expected settings.
-- Use `general` when you want broad coverage across the codebase.
+---
 
-### Baseline and suppressions (simple version)
+## Project layout
 
-- `baseline` = "known existing findings we accept for now."
-- `suppressions` = "skip this rule for this path."
-- This helps you adopt scanning without blocking everything on day one.
-- Over time, reduce baseline/suppressions as code gets cleaner.
+| Path | Role |
+|------|------|
+| `eye_of_sauron/checker.py` | CLI, scan engine, Semgrep hook, SARIF/punchlist |
+| `eye_of_sauron/conf.py` | Legacy rule matrix (PHP/JS, etc.) merged with packs |
+| `eye_of_sauron/rules_loader.py` | YAML pack loader + validation |
+| `eye_of_sauron/rules/` | Shipped packs (`modern-core`, `secrets`, `tier2-languages`, `schema`) |
+| `checker.py` (repo root) | Thin wrapper: `python checker.py` → same as the package CLI |
+| `tests/` | `unittest` suite |
 
-### Semgrep profiles (simple version)
+---
 
-- `fast`: quick pass, mostly secrets-focused.
-- `balanced`: good default for day-to-day scans.
-- `strict`: deeper scan, more findings, best for security-focused CI runs.
-- You can override profile configs directly with `--semgrep-config`.
+## Quick start: scan any repository
 
-## CLI usage
+From a checkout **or** after `pip install`, point **`-t`** at the repo root. By default the whole tree is scanned (empty `scan_folders` in `conf.py`).
 
-- `python3 checker.py -t /path/to/repo -s high,medium` (default: scan the **whole** tree under `-t`)
-- `python3 checker.py -t /path/to/repo -f application,assets -s high,medium` (legacy: only paths containing those **folder name** segments)
-- `python3 checker.py -t /path/to/repo --format json --fail-on medium`
-- `python3 checker.py -t /path/to/repo --max-findings 50 --exclude-dirs .git,node_modules`
-- `python3 checker.py -t /path/to/repo --profile backend --format sarif`
-- `python3 checker.py -t /path/to/repo --profile platform --format sarif`
-- `python3 checker.py -t /path/to/repo --suppressions suppressions.txt --baseline baseline.json`
-- `python3 checker.py -t /path/to/repo --suppressions suppressions-python-stuff-tests.txt`
-- `python3 checker.py -t /path/to/repo --write-baseline baseline.json`
-- `python3 checker.py -t /path/to/repo --rule-packs-dir ./rules --use-semgrep --semgrep-config auto`
-- `python3 checker.py -t /path/to/repo --use-semgrep --semgrep-profile fast`
-- `python3 checker.py -t /path/to/repo --use-semgrep --semgrep-profile strict`
-- `python3 checker.py -t /path/to/repo --log-dir ./logs`
-- `python3 checker.py -t /path/to/repo --punchlist`
+```bash
+# Examples (pick one entry style)
+eye-of-sauron -t /path/to/repo -s high,medium
+python3 -m eye_of_sauron -t /path/to/repo -s high,medium
+python3 checker.py -t /path/to/repo -s high,medium   # only when cwd is this repo
+```
 
-## Notes
+**Useful knobs:**
 
-- `checker.py` now supports:
-  - text, JSON, and SARIF output
-  - rule metadata (`id`, `description`, `remediation`, `fix_recipe`, `safe_replacement`, `test_policy`, `autofix`, `docs_url`, `tags`, `cwe`, `confidence`)
-  - baseline filtering and suppression files
-  - external YAML rule packs (validated at load time)
-  - optional Semgrep integration (`--use-semgrep`)
-  - profile-based extension filtering (`default`, `web`, `backend`, `platform`, `full`)
-- Regex rules are compiled once at startup with validation errors surfaced before scan completion.
-- Path filtering uses path-part matching and supports explicit exclude directories.
-- Modern languages covered in YAML rule packs include Python, TypeScript/TSX, Java, Go, Ruby, Shell, YAML, and Terraform.
-- Additional tier-2 languages via rule packs include Rust, C#, Kotlin, Swift, Scala, SQL, and Dockerfile.
-- New detection categories include hardcoded secrets, injection sinks, unsafe deserialization patterns, insecure TLS settings, and risky shell usage.
-- Exit codes:
-  - `0`: no findings at/above `--fail-on`
-  - `1`: findings at/above `--fail-on`
-  - `2`: config/runtime errors (invalid regex, unreadable files, etc.)
-- Unit tests live in `tests/test_eye_conf.py` and `tests/test_checker.py`.
-- Default `scan_folders` in `conf.py` is **empty** (scan entire repo). If you pass non-empty `--folders` and **zero files** are scanned, the CLI prints a **warning** explaining path-part matching.
+| Goal | Flags |
+|------|--------|
+| Limit to subtrees whose path contains certain **folder names** (legacy) | `-f application,assets` |
+| Broader built-in rules | `-s high,medium,low` |
+| Machine-readable output | `--format json` or `--format sarif` |
+| CI pass/fail | `--fail-on high` (exit `1` if any finding ≥ that severity) |
+| Markdown + SARIF bundle under the **target** repo | `--punchlist` → `TARGET/punchlist/scan-<ts>-<id>/` |
+| Skip known noise | `--suppressions path/to.txt` |
+| Known backlog | `--baseline baseline.json` / `--write-baseline` |
+| Add Semgrep | `--use-semgrep` (+ install `semgrep` on PATH) |
+| Logs | `--log-dir ./logs` (default **`logs`** relative to **current working directory**) |
+| Full flag list | `-h` or **`--help`** (same for `python -m eye_of_sauron` / `python checker.py`) |
+
+**Gotcha:** non-empty `-f` uses **path-part** matching (a directory segment must equal one of the names). If **zero files** are scanned, the tool prints a **warning** to stderr.
+
+---
+
+## CLI cheat sheet
+
+```text
+eye-of-sauron -t TOPDIR [-f FOLDERS] [-s LEVELS] [-i IGNORE] [-q] [-v]
+  [--format text|json|sarif] [--fail-on high|medium|low|specific]
+  [--profile default|web|backend|platform|full] [--scan-comments]
+  [--suppressions FILE] [--baseline FILE] [--write-baseline FILE] [--punchlist]
+  [--use-semgrep] [--semgrep-profile fast|balanced|strict] [--semgrep-config a,b]
+  [--log-dir DIR] [--max-findings N] [--exclude-dirs a,b] [--rule-packs-dir DIR]
+```
+
+Concrete examples:
+
+- `eye-of-sauron -t . -s high,medium,low --suppressions suppressions-ci.txt --fail-on high`
+- `eye-of-sauron -t ../myapp --format sarif --fail-on medium > results.sarif`
+- `eye-of-sauron -t . --punchlist` (writes punchlist under **`-t`**, not the scanner repo)
+
+---
+
+## Plain-English behavior
+
+- **Specific** rules: named files (e.g. `Dockerfile`, `settings.py`) with stricter expectations.
+- **General** rules: line/regex checks per language (e.g. `eval`, weak TLS, secrets).
+- **Baseline** = accepted known findings; **suppressions** = disable a rule for matching paths (`fnmatch` on the **absolute** file path).
+- **Semgrep** is optional; rule IDs are prefixed with `SEMGREP::` when merged.
+
+Exit codes: **`0`** clean vs `--fail-on`, **`1`** failing findings, **`2`** config/runtime errors.
+
+---
 
 ## Development
 
-- Install YAML loader for rule packs: `pip install -r requirements-dev.txt`
-- Optional: `pyproject.toml` lists the same runtime dependency (`PyYAML`) for tools that read PEP 621 metadata.
-- Run tests: `python3 -m unittest discover -s tests -p 'test_*.py' -v`
+```bash
+pip install -r requirements-dev.txt   # PyYAML only; then run tests from checkout
+# or install the tool into the venv:
+pip install .                           # or: pip install -e .  (needs recent pip)
 
-## CI
+python3 -m unittest discover -s tests -p 'test_*.py' -v
+```
 
-- When this repo lives under `python-stuff/` on GitHub, workflow **`.github/workflows/eye-of-sauron.yml`** runs on changes under `eye-of-sauron/`: unit tests + `checker.py` self-scan with `suppressions-ci.txt` (intentional test fixtures).
+CI (under `python-stuff/`): `.github/workflows/eye-of-sauron.yml` — `pip install .`, tests, then `eye-of-sauron` self-scan with `suppressions-ci.txt`.
+
+---
 
 ## Semgrep
 
-- Semgrep is optional and additive; `eye-of-sauron` still works without it.
-- When enabled, Semgrep findings are merged into output with `SEMGREP::` prefixed rule IDs.
-- If Semgrep is not installed, scanner reports a config/runtime error with guidance.
-- Built-in Semgrep profiles:
-  - `fast`: `p/secrets`
-  - `balanced`: `auto`
-  - `strict`: `p/secrets`, `p/security-audit`, `p/owasp-top-ten`
-- `--semgrep-config` overrides profile defaults; pass comma-separated config values.
-- Every run writes a unique JSON log file to `logs/` by default (override with `--log-dir`).
-- `--punchlist` writes a v2 markdown checklist and matching SARIF in one folder per run:
-  - `punchlist/scan-<timestamp>-<id>/punchlist.md` (includes a relative link to the SARIF)
-  - `punchlist/scan-<timestamp>-<id>/results.sarif`
+- Profiles: `fast` → `p/secrets`; `balanced` → `auto`; `strict` adds security-audit + OWASP packs.
+- Override with `--semgrep-config a,b,c`.
+- If the binary is missing, you get guidance in compile errors (exit `2` if that path breaks your policy).
 
-## LLM-friendly guidance fields
+---
 
-- `fix_recipe`: step-by-step guidance for developers/agents.
-- `safe_replacement`: concrete safer code pattern.
-- `test_policy`: whether the rule should still fire in tests (`flag-in-tests-and-prod`, `allow-in-tests-with-justification`, etc.).
-- `autofix`: expected automation confidence (`safe`, `review`, `manual`).
-- `docs_url`: optional reference for deeper remediation context.
+## Punch list (v2)
 
-When unsure, prefer `autofix: review` so teams get prompted rather than silently rewritten.
+With `--punchlist`, each run creates:
 
-## Punch List v2
+- `…/punchlist/scan-<timestamp>-<id>/punchlist.md` (checklist + link to SARIF)
+- `…/punchlist/scan-<timestamp>-<id>/results.sarif`
 
-- Keeps your markdown checklist workflow, with additions for tracking:
-  - `finding-id` (stable short id)
-  - `status` (default `open`)
-  - `owner` (default `unassigned`)
-  - `sla` (severity-based target)
-- Includes existing context (`why`, `fix`, `recipe`, `safe-replacement`, `autofix`, `test-policy`, `docs`, `snippet`).
-- Writes a matching SARIF artifact with the same run id for tool/CI interoperability.
+---
 
-## Next Steps
+## LLM-friendly rule fields (YAML packs)
 
-- Add AST-native checks for Python and TypeScript to reduce regex false positives on injection findings.
-- Split rule-pack CI into validation + benchmark jobs (correctness and performance budgets).
-- Add richer rule metadata governance (`owner`, `review_date`, `precision`) and stale-rule reporting.
-- Add prebuilt Semgrep profiles (`strict`, `balanced`, `fast`) and map them to scanner profiles.
-- Add GitHub Actions workflow to run scanner + Semgrep and upload SARIF automatically.
-- Add policy mode (`--enforce`) with per-severity quality gates and baseline drift alerts.
+`fix_recipe`, `safe_replacement`, `test_policy`, `autofix`, `docs_url`, `cwe`, etc. Prefer `autofix: review` when automation is uncertain.
 
-## Suppressions file format
+---
 
-Plain text file with one rule per line:
+## Suppressions file
 
-- `path_glob:rule_id`
-- `path_glob:*` (suppress all rules for matching files)
+One entry per line: `path_glob:rule_id` or `path_glob:*`.
 
-Example:
+Examples:
 
-- `*/vendor/*:*`
-- `*/migrations/*.py:PY_EVAL_EXEC`
+```text
+*/vendor/*:*
+*/migrations/*.py:PY_EVAL_EXEC
+```
+
+---
+
+## Roadmap (ideas)
+
+- AST-native checks for Python/TypeScript to cut regex false positives.
+- Rule-pack CI split (validation vs performance).
+- Richer metadata (`owner`, `review_date`, `precision`) and stale-rule reports.
+- SARIF upload in GitHub Actions / code scanning.
+- Policy mode (`--enforce`) and baseline drift.

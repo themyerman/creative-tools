@@ -1,5 +1,7 @@
-# Dependency metadata for tools (pip, uv, IDEs). Install dev deps with:
-#   pip install -r requirements-dev.txt
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "eye-of-sauron"
 version = "0.1.0"
@@ -9,3 +11,12 @@ requires-python = ">=3.9"
 dependencies = [
     "PyYAML>=6.0.1",
 ]
+
+[project.scripts]
+eye-of-sauron = "eye_of_sauron.checker:main"
+
+[tool.setuptools]
+packages = ["eye_of_sauron"]
+
+[tool.setuptools.package-data]
+eye_of_sauron = ["rules/*.yaml"]

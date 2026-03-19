@@ -25,14 +25,14 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install dependencies
-        run: pip install -r requirements-dev.txt
+      - name: Install package
+        run: pip install .
 
       - name: Unit tests
         run: python3 -m unittest discover -s tests -p "test_*.py" -v
 
       - name: Self-scan (HIGH must be clean with CI suppressions)
         run: |
-          python3 checker.py -t . -s high,medium,low \
+          eye-of-sauron -t . -s high,medium,low \
             --suppressions suppressions-ci.txt \
             --fail-on high

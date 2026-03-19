@@ -1,17 +1,11 @@
 """Tests for eye-of-sauron checker scan engine and CLI behavior."""
 
-import importlib.util
 import json
 import tempfile
 import unittest
 from pathlib import Path
 
-BASE_DIR = Path(__file__).resolve().parents[1]
-CHECKER_PATH = BASE_DIR / "checker.py"
-
-spec = importlib.util.spec_from_file_location("eye_of_sauron_checker_mod", CHECKER_PATH)
-checker = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(checker)
+from eye_of_sauron import checker
 
 
 def build_test_rules():
