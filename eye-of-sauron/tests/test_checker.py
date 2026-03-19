@@ -1,5 +1,7 @@
 """Tests for eye-of-sauron checker scan engine and CLI behavior."""
 
+import contextlib
+import io
 import json
 import tempfile
 import unittest
@@ -230,6 +232,18 @@ class CheckerTests(unittest.TestCase):
         self.assertIn("test-policy: review", md)
         self.assertIn("finding-id:", md)
         self.assertIn("status: `open`", md)
+
+    def test_output_writes_sarif_to_file_without_stdout_body(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "report.sarif"
+            buf = io.StringIO()
+            err = io.StringIO()
+            with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(err):
+                code = checker.main(["-t", tmp, "--format", "sarif", "--output", str(out)])
+            self.assertEqual(code, 0)
+            self.assertTrue(out.is_file())
+            self.assertIn('"version": "2.1.0"', out.read_text(encoding="utf-8"))
+            self.assertEqual(buf.getvalue().strip(), "")
 
 
 if __name__ == "__main__":

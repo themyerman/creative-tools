@@ -17,6 +17,13 @@ After install, the CLI is **`eye-of-sauron`** (hyphen). Rule packs ship inside t
 
 **Requirements:** Python **3.9+**, **PyYAML** (declared in `pyproject.toml`).
 
+**Reliable installs:** upgrade packaging tools first (avoids old pip/`egg` issues):
+
+```bash
+python -m pip install -U pip setuptools wheel
+pip install .          # or: pip install -e .
+```
+
 ---
 
 ## Project layout
@@ -28,7 +35,9 @@ After install, the CLI is **`eye-of-sauron`** (hyphen). Rule packs ship inside t
 | `eye_of_sauron/rules_loader.py` | YAML pack loader + validation |
 | `eye_of_sauron/rules/` | Shipped packs (`modern-core`, `secrets`, `tier2-languages`, `schema`) |
 | `checker.py` (repo root) | Thin wrapper: `python checker.py` → same as the package CLI |
+| `scripts/clean_local.sh` | Deletes `logs/`, `punchlist/`, build dirs, `eye-of-sauron-results.sarif`, `*.egg-info` |
 | `tests/` | `unittest` suite |
+| `LICENSE`, `CHANGELOG.md`, `RELEASING.md` | MIT license, release notes, release checklist |
 
 ---
 
@@ -50,6 +59,7 @@ python3 checker.py -t /path/to/repo -s high,medium   # only when cwd is this rep
 | Limit to subtrees whose path contains certain **folder names** (legacy) | `-f application,assets` |
 | Broader built-in rules | `-s high,medium,low` |
 | Machine-readable output | `--format json` or `--format sarif` |
+| Write JSON/SARIF to a file (no stdout body for those formats) | `-o FILE` / `--output FILE` |
 | CI pass/fail | `--fail-on high` (exit `1` if any finding ≥ that severity) |
 | Markdown + SARIF bundle under the **target** repo | `--punchlist` → `TARGET/punchlist/scan-<ts>-<id>/` |
 | Skip known noise | `--suppressions path/to.txt` |
@@ -70,14 +80,26 @@ eye-of-sauron -t TOPDIR [-f FOLDERS] [-s LEVELS] [-i IGNORE] [-q] [-v]
   [--profile default|web|backend|platform|full] [--scan-comments]
   [--suppressions FILE] [--baseline FILE] [--write-baseline FILE] [--punchlist]
   [--use-semgrep] [--semgrep-profile fast|balanced|strict] [--semgrep-config a,b]
-  [--log-dir DIR] [--max-findings N] [--exclude-dirs a,b] [--rule-packs-dir DIR]
+  [--output FILE] [--log-dir DIR] [--max-findings N] [--exclude-dirs a,b] [--rule-packs-dir DIR]
 ```
 
 Concrete examples:
 
 - `eye-of-sauron -t . -s high,medium,low --suppressions suppressions-ci.txt --fail-on high`
-- `eye-of-sauron -t ../myapp --format sarif --fail-on medium > results.sarif`
+- `eye-of-sauron -t ../myapp --format sarif --output results.sarif --fail-on medium`
 - `eye-of-sauron -t . --punchlist` (writes punchlist under **`-t`**, not the scanner repo)
+
+---
+
+## Local artifacts & cleanup
+
+Ignored by git (see `.gitignore`): **`logs/`**, **`punchlist/`**, **`*.sarif`**, **`eye-of-sauron-results.sarif`**, Python/build dirs (`build/`, `dist/`, `.eggs/`, `*.egg-info`), caches.
+
+Remove them locally:
+
+```bash
+./scripts/clean_local.sh
+```
 
 ---
 
@@ -95,14 +117,19 @@ Exit codes: **`0`** clean vs `--fail-on`, **`1`** failing findings, **`2`** conf
 ## Development
 
 ```bash
-pip install -r requirements-dev.txt   # PyYAML only; then run tests from checkout
-# or install the tool into the venv:
-pip install .                           # or: pip install -e .  (needs recent pip)
+python -m pip install -U pip setuptools wheel   # recommended before install
+pip install -r requirements-dev.txt             # PyYAML only; run tests without installing
+# or install the tool:
+pip install .                                    # or: pip install -e .
 
 python3 -m unittest discover -s tests -p 'test_*.py' -v
 ```
 
-CI (under `python-stuff/`): `.github/workflows/eye-of-sauron.yml` — `pip install .`, tests, then `eye-of-sauron` self-scan with `suppressions-ci.txt`.
+**Releases:** see **`RELEASING.md`** and **`CHANGELOG.md`**.
+
+### CI (GitHub)
+
+Workflow **`.github/workflows/eye-of-sauron.yml`**: upgrades pip/setuptools, **`pip install .`**, unit tests, SARIF written with `--output eye-of-sauron-results.sarif`, **upload to GitHub Code Scanning** (`upload-sarif`; fork PRs may skip upload), then a gate step with `--fail-on high` and `suppressions-ci.txt`.
 
 ---
 
@@ -147,5 +174,4 @@ Examples:
 - AST-native checks for Python/TypeScript to cut regex false positives.
 - Rule-pack CI split (validation vs performance).
 - Richer metadata (`owner`, `review_date`, `precision`) and stale-rule reports.
-- SARIF upload in GitHub Actions / code scanning.
 - Policy mode (`--enforce`) and baseline drift.

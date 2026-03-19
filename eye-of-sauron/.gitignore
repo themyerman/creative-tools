@@ -20,6 +20,8 @@ htmlcov/
 build/
 dist/
 *.egg-info/
+.eggs/
+pip-wheel-metadata/
 
 # Local scanner output artifacts
 baseline.json
@@ -27,6 +29,7 @@ baseline.json
 scan-results.json
 scan-results.sarif
 *.sarif
+eye-of-sauron-results.sarif
 *.tmp.json
 logs/
 # Punch list bundles (per-run subfolders: scan-<id>/punchlist.md, results.sarif)

@@ -1,4 +1,4 @@
-# CI for eye-of-sauron: unit tests + self-scan (fails on HIGH findings outside suppressions).
+# CI for eye-of-sauron: tests, SARIF upload (Code Scanning), self-scan gate.
 name: eye-of-sauron
 
 on:
@@ -11,12 +11,19 @@ on:
       - "eye-of-sauron/**"
       - ".github/workflows/eye-of-sauron.yml"
 
+permissions:
+  contents: read
+
 jobs:
   test-and-scan:
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: eye-of-sauron
+
+    permissions:
+      contents: read
+      security-events: write
 
     steps:
       - uses: actions/checkout@v4
@@ -26,12 +33,35 @@ jobs:
           python-version: "3.11"
 
       - name: Install package
-        run: pip install .
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          pip install .
 
       - name: Unit tests
         run: python3 -m unittest discover -s tests -p "test_*.py" -v
 
-      - name: Self-scan (HIGH must be clean with CI suppressions)
+      # Exit 0 unless config/runtime errors (2); findings (1) still produce SARIF for upload.
+      - name: Self-scan (write SARIF)
+        run: |
+          set +e
+          eye-of-sauron -t . -s high,medium,low \
+            --suppressions suppressions-ci.txt \
+            --format sarif \
+            --output eye-of-sauron-results.sarif
+          rc=$?
+          set -e
+          if [ "$rc" -eq 2 ]; then exit 2; fi
+          exit 0
+
+      - name: Upload SARIF to GitHub Code Scanning
+        uses: github/codeql-action/upload-sarif@v3
+        # Fork PRs: token may lack security-events:write; don't fail the workflow.
+        continue-on-error: true
+        with:
+          sarif_file: eye-of-sauron/eye-of-sauron-results.sarif
+          category: eye-of-sauron
+
+      - name: Self-scan (enforce HIGH clean)
         run: |
           eye-of-sauron -t . -s high,medium,low \
             --suppressions suppressions-ci.txt \

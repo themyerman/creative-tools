@@ -123,6 +123,16 @@ def parse_args(argv):
         help="Output format.",
     )
     parser.add_argument(
+        "-o",
+        "--output",
+        default="",
+        metavar="FILE",
+        help=(
+            "Write the report to FILE. For json/sarif, body goes only to this file (summary on stderr). "
+            "For text, still printed to stdout as well."
+        ),
+    )
+    parser.add_argument(
         "--fail-on",
         choices=VALID_SEVERITIES,
         default="high",
@@ -850,7 +860,16 @@ def main(argv=None):
         rendered = render_sarif(result)
     else:
         rendered = render_text(result, show_ok=args.verbose)
-    print(rendered)
+
+    if args.output:
+        out_path = Path(args.output)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(rendered, encoding="utf-8")
+        if args.format in ("json", "sarif"):
+            print(f"Report written: {out_path.resolve()}", file=sys.stderr)
+
+    if not args.output or args.format == "text":
+        print(rendered)
 
     log_path = write_run_log(args.log_dir, args, result, rendered, args.format)
     if args.punchlist:
