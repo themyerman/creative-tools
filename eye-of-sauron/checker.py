@@ -24,14 +24,6 @@ except ModuleNotFoundError:
     spec.loader.exec_module(conf_module)
     DEFAULT_RULES = conf_module.rules
 try:
-    from rules_modern import MODERN_RULES
-except ModuleNotFoundError:
-    rules_modern_path = Path(__file__).resolve().parent / "rules_modern.py"
-    modern_spec = importlib.util.spec_from_file_location("eye_modern_rules_runtime", rules_modern_path)
-    modern_module = importlib.util.module_from_spec(modern_spec)
-    modern_spec.loader.exec_module(modern_module)
-    MODERN_RULES = modern_module.MODERN_RULES
-try:
     from rules_loader import load_rule_packs
 except ModuleNotFoundError:
     rules_loader_path = Path(__file__).resolve().parent / "rules_loader.py"
@@ -635,7 +627,7 @@ def run_semgrep_scan(topdir, semgrep_config):
 def main(argv=None):
     """CLI entrypoint."""
     args = parse_args(argv or sys.argv[1:])
-    runtime_rules = merge_rule_configs(copy.deepcopy(DEFAULT_RULES), copy.deepcopy(MODERN_RULES))
+    runtime_rules = copy.deepcopy(DEFAULT_RULES)
     pack_rules, pack_errors = load_rule_packs(args.rule_packs_dir)
     if pack_rules:
         runtime_rules = merge_rule_configs(runtime_rules, pack_rules)

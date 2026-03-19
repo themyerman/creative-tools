@@ -6,7 +6,6 @@ Security-pattern scanner for legacy and modern codebases.
 
 - `checker.py`: command-line scanner that walks configured folders and reports matching rule violations.
 - `conf.py`: rule definitions grouped by extension and severity (`high`, `medium`, `low`), plus specific-file checks.
-- `rules_modern.py`: modern multi-language rule pack with rule metadata.
 - `rules/`: external JSON rule packs (`modern-core.json`, `secrets.json`, `tier2-languages.json`) plus `schema.json`.
 - `rules_loader.py`: rule-pack loader with lightweight schema validation.
 
@@ -33,7 +32,7 @@ Security-pattern scanner for legacy and modern codebases.
   - profile-based extension filtering (`default`, `web`, `backend`, `platform`, `full`)
 - Regex rules are compiled once at startup with validation errors surfaced before scan completion.
 - Path filtering uses path-part matching and supports explicit exclude directories.
-- Modern languages covered in `rules_modern.py` include Python, TypeScript/TSX, Java, Go, Ruby, Shell, YAML, and Terraform.
+- Modern languages covered in JSON rule packs include Python, TypeScript/TSX, Java, Go, Ruby, Shell, YAML, and Terraform.
 - Additional tier-2 languages via rule packs include Rust, C#, Kotlin, Swift, Scala, SQL, and Dockerfile.
 - New detection categories include hardcoded secrets, injection sinks, unsafe deserialization patterns, insecure TLS settings, and risky shell usage.
 - Exit codes:

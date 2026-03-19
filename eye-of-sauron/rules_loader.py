@@ -65,7 +65,7 @@ def load_rule_packs(rule_packs_dir):
     path = Path(rule_packs_dir)
     if not path.exists():
         return {}, [f"Rule packs directory not found: {path}"]
-    json_files = sorted(path.glob("*.json"))
+    json_files = sorted(file for file in path.glob("*.json") if file.name != "schema.json")
     if not json_files:
         return {}, []
 
