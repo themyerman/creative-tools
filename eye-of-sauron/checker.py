@@ -64,6 +64,11 @@ PROFILE_EXTENSIONS = {
     "platform": {".rs", ".cs", ".kt", ".swift", ".scala", ".sql", ".dockerfile"},
     "full": None,
 }
+SEMGREP_PROFILES = {
+    "fast": ["p/secrets"],
+    "balanced": ["auto"],
+    "strict": ["p/secrets", "p/security-audit", "p/owasp-top-ten"],
+}
 
 
 @dataclass
@@ -176,9 +181,15 @@ def parse_args(argv):
         help="Run Semgrep and merge findings (if semgrep CLI is available).",
     )
     parser.add_argument(
+        "--semgrep-profile",
+        choices=tuple(SEMGREP_PROFILES.keys()),
+        default="balanced",
+        help="Predefined Semgrep ruleset profile.",
+    )
+    parser.add_argument(
         "--semgrep-config",
-        default="auto",
-        help="Semgrep config to use with --use-semgrep (for example: auto, p/owasp-top-ten).",
+        default="",
+        help="Override Semgrep config(s); comma-separated values.",
     )
     parser.add_argument(
         "--log-dir",
@@ -605,14 +616,10 @@ def parse_semgrep_json_payload(payload_text):
 
 def run_semgrep_scan(topdir, semgrep_config):
     """Run semgrep scan and return findings plus errors."""
-    cmd = [
-        "semgrep",
-        "scan",
-        "--config",
-        semgrep_config,
-        "--json",
-        str(topdir),
-    ]
+    cmd = ["semgrep", "scan"]
+    for conf in semgrep_config:
+        cmd.extend(["--config", conf])
+    cmd.extend(["--json", str(topdir)])
     try:
         result = subprocess.run(cmd, text=True, capture_output=True, check=False)
     except FileNotFoundError:
@@ -622,6 +629,13 @@ def run_semgrep_scan(topdir, semgrep_config):
         return [], [f"Semgrep scan failed: {err}"]
     findings, parse_errors = parse_semgrep_json_payload(result.stdout)
     return findings, parse_errors
+
+
+def resolve_semgrep_configs(profile, semgrep_config):
+    """Resolve effective Semgrep config list from profile/override."""
+    if semgrep_config:
+        return [item.strip() for item in semgrep_config.split(",") if item.strip()]
+    return list(SEMGREP_PROFILES.get(profile, SEMGREP_PROFILES["balanced"]))
 
 
 def main(argv=None):
@@ -669,7 +683,8 @@ def main(argv=None):
     result.findings = filtered_findings
 
     if args.use_semgrep:
-        semgrep_findings, semgrep_errors = run_semgrep_scan(args.topdir, args.semgrep_config)
+        semgrep_configs = resolve_semgrep_configs(args.semgrep_profile, args.semgrep_config)
+        semgrep_findings, semgrep_errors = run_semgrep_scan(args.topdir, semgrep_configs)
         result.findings.extend(semgrep_findings)
         result.compile_errors.extend(semgrep_errors)
 

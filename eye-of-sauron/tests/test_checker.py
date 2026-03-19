@@ -195,6 +195,14 @@ class CheckerTests(unittest.TestCase):
         self.assertEqual(checker._detect_file_key("Dockerfile"), ".dockerfile")
         self.assertEqual(checker._detect_file_key("main.py"), ".py")
 
+    def test_resolve_semgrep_profiles(self):
+        self.assertEqual(checker.resolve_semgrep_configs("fast", ""), ["p/secrets"])
+        self.assertEqual(checker.resolve_semgrep_configs("balanced", ""), ["auto"])
+        strict = checker.resolve_semgrep_configs("strict", "")
+        self.assertIn("p/owasp-top-ten", strict)
+        custom = checker.resolve_semgrep_configs("fast", "auto,p/secrets")
+        self.assertEqual(custom, ["auto", "p/secrets"])
+
 
 if __name__ == "__main__":
     unittest.main()
