@@ -41,7 +41,8 @@ Security-pattern scanner for legacy and modern codebases.
 
 ## CLI usage
 
-- `python3 checker.py -t /path/to/repo -f application,assets -s high,medium`
+- `python3 checker.py -t /path/to/repo -s high,medium` (default: scan the **whole** tree under `-t`)
+- `python3 checker.py -t /path/to/repo -f application,assets -s high,medium` (legacy: only paths containing those **folder name** segments)
 - `python3 checker.py -t /path/to/repo --format json --fail-on medium`
 - `python3 checker.py -t /path/to/repo --max-findings 50 --exclude-dirs .git,node_modules`
 - `python3 checker.py -t /path/to/repo --profile backend --format sarif`
@@ -74,6 +75,17 @@ Security-pattern scanner for legacy and modern codebases.
   - `1`: findings at/above `--fail-on`
   - `2`: config/runtime errors (invalid regex, unreadable files, etc.)
 - Unit tests live in `tests/test_eye_conf.py` and `tests/test_checker.py`.
+- Default `scan_folders` in `conf.py` is **empty** (scan entire repo). If you pass non-empty `--folders` and **zero files** are scanned, the CLI prints a **warning** explaining path-part matching.
+
+## Development
+
+- Install YAML loader for rule packs: `pip install -r requirements-dev.txt`
+- Optional: `pyproject.toml` lists the same runtime dependency (`PyYAML`) for tools that read PEP 621 metadata.
+- Run tests: `python3 -m unittest discover -s tests -p 'test_*.py' -v`
+
+## CI
+
+- When this repo lives under `python-stuff/` on GitHub, workflow **`.github/workflows/eye-of-sauron.yml`** runs on changes under `eye-of-sauron/`: unit tests + `checker.py` self-scan with `suppressions-ci.txt` (intentional test fixtures).
 
 ## Semgrep
 

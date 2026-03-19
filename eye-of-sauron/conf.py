@@ -6,7 +6,8 @@ rules = {
 	'topdir'			:	'.',
 	'scan_level'		:	['high'],
 	'ignore'			:   [],
-	'scan_folders'		:	['application','assets'],
+	# Empty = scan entire tree under topdir. Use e.g. ['application','assets'] for legacy layouts.
+	'scan_folders'		:	[],
 	'print_ok'			:	False,
 	
 	

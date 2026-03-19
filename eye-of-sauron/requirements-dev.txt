@@ -1,0 +1,2 @@
+# Runtime + tests for eye-of-sauron (YAML rule packs, loader validation).
+PyYAML>=6.0.1

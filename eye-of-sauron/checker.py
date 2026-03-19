@@ -830,6 +830,13 @@ def main(argv=None):
         max_findings=max(0, args.max_findings),
         allowed_extensions=allowed_extensions,
     )
+    if include_folders and result.files_scanned == 0:
+        print(
+            "Warning: no files were scanned. Non-empty --folders limits paths to directories "
+            "whose path contains one of those folder names (path-part match). "
+            "Use --folders \"\" to scan the whole tree, or adjust folder names.",
+            file=sys.stderr,
+        )
     result.compile_errors.extend(pack_errors + suppression_errors + baseline_errors)
     filtered_findings = []
     for finding in result.findings:

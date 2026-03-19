@@ -1,0 +1,38 @@
+# CI for eye-of-sauron: unit tests + self-scan (fails on HIGH findings outside suppressions).
+name: eye-of-sauron
+
+on:
+  push:
+    paths:
+      - "eye-of-sauron/**"
+      - ".github/workflows/eye-of-sauron.yml"
+  pull_request:
+    paths:
+      - "eye-of-sauron/**"
+      - ".github/workflows/eye-of-sauron.yml"
+
+jobs:
+  test-and-scan:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: eye-of-sauron
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Unit tests
+        run: python3 -m unittest discover -s tests -p "test_*.py" -v
+
+      - name: Self-scan (HIGH must be clean with CI suppressions)
+        run: |
+          python3 checker.py -t . -s high,medium,low \
+            --suppressions suppressions-ci.txt \
+            --fail-on high

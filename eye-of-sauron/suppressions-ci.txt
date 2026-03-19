@@ -1,0 +1,2 @@
+# Suppressions for CI: intentional fixtures in unit tests (absolute paths vary by runner).
+*test_checker.py:PY_EVAL_EXEC

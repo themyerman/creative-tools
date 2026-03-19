@@ -1,0 +1,11 @@
+# Dependency metadata for tools (pip, uv, IDEs). Install dev deps with:
+#   pip install -r requirements-dev.txt
+[project]
+name = "eye-of-sauron"
+version = "0.1.0"
+description = "Security-pattern scanner for legacy and modern codebases"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "PyYAML>=6.0.1",
+]
