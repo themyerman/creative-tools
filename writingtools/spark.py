@@ -2,94 +2,87 @@
 import json
 import os
 import sys
+from importlib import resources
+from pathlib import Path
 
 import click
+import yaml
 
 from .render import render_email
 from .mailer import send
 
 
-GENRES = {
-    "sf": {
-        "label": "Science Fiction",
-        "icon": "🚀",
-        "color": "#1a3a5c",
-        "preferences": (
-            "space opera, alternate histories, dystopias, solarpunk, and Indigenous futurism. "
-            "The writer is a Hodinǫ̱hsǫ́:nih and Ngäbe-Buglé Indigenous author — prompts that touch "
-            "Indigenous futures, sovereignty, or relationships with land and cosmos are especially welcome. "
-            "Tonal influences: Ursula K. Le Guin (anthropological depth, quiet moral weight), "
-            "Brian Daley (pulpy space opera energy), Joe Haldeman (war, trauma, the long cost), "
-            "Iain M. Banks (post-scarcity complexity, dark wit), Elliott Kay (grounded characters in big situations)."
-        ),
-    },
-    "fantasy": {
-        "label": "Fantasy",
-        "icon": "⚔️",
-        "color": "#2d1b4e",
-        "preferences": (
-            "grimdark fantasy. Moral ambiguity, hard choices, consequences that linger. "
-            "No chosen-one tropes. No clean endings required. "
-            "Tonal influences: Terry Pratchett (dark humour, humanity beneath the grime) and "
-            "Joe Abercrombie (brutal realism, characters who do terrible things for understandable reasons)."
-        ),
-    },
-    "western": {
-        "label": "Western",
-        "icon": "🌵",
-        "color": "#4a2c0a",
-        "preferences": (
-            "neo-westerns and classic westerns with strong Indigenous perspectives and characters. "
-            "The frontier from the other side. Land, sovereignty, survival, justice on the margins. "
-            "Tonal influences: Taylor Sheridan (modern moral complexity, landscape as character), "
-            "Margaret Coel (Arapaho community and culture at the center), "
-            "Tony Hillerman (place-driven, Indigenous detective tradition)."
-        ),
-    },
-    "mystery": {
-        "label": "Mystery",
-        "icon": "🕵️",
-        "color": "#1a2a1a",
-        "preferences": (
-            "neo-noir and hardboiled mysteries. Corrupt systems, flawed investigators, cities with memory. "
-            "Tonal influences: James Ellroy (brutal LA noir, institutional rot), "
-            "Walter Mosley (Easy Rawlins — race, power, community), "
-            "Dennis Lehane (Boston working-class, moral ambiguity), "
-            "John Sandford (procedural tension, dark humor), "
-            "Robert Crais (character-driven LA detective work)."
-        ),
-    },
-}
+def _load_config(config_path: str | None) -> dict:
+    """Load config from path, SPARK_CONFIG env var, or bundled default."""
+    path = config_path or os.environ.get("SPARK_CONFIG")
+    if path:
+        return yaml.safe_load(Path(path).read_text(encoding="utf-8"))
+    bundled = Path(__file__).parent / "config.yaml"
+    return yaml.safe_load(bundled.read_text(encoding="utf-8"))
+
+
+def _build_genres(config: dict) -> dict:
+    """Convert config genres section into the runtime GENRES dict."""
+    genres = {}
+    for key, g in config.get("genres", {}).items():
+        influences = g.get("influences", [])
+        prefs = g.get("preferences", "").strip()
+        if influences:
+            inf_str = ", ".join(influences)
+            prefs = f"{prefs} Tonal influences: {inf_str}."
+        genres[key] = {
+            "label": g["label"],
+            "icon": g["icon"],
+            "color": g["color"],
+            "preferences": prefs,
+        }
+    return genres
 
 
 @click.command()
+@click.option("--config", "config_path", default=None, metavar="FILE",
+              help="Path to a YAML config file (default: bundled config.yaml)")
 @click.option("--email", is_flag=True, default=False,
               help="Generate prompts and send via email")
-@click.option("--genre", type=click.Choice(list(GENRES)), default=None,
-              help="Generate only one genre (default: all four)")
+@click.option("--genre", type=str, default=None,
+              help="Generate only one genre (must match a key in config)")
 @click.option("--model", default="gpt-4o-mini", show_default=True,
               help="GitHub Models model ID to use")
 @click.option("--print-html", is_flag=True, default=False,
               help="Print the rendered HTML to stdout instead of sending")
 @click.option("--output", "-o", type=click.Path(), default=None,
               help="Write HTML to a file (e.g. docs/index.html)")
-def cli(email, genre, model, print_html, output):
+def cli(config_path, email, genre, model, print_html, output):
     """Generate daily writing sparks — one prompt per genre — via GitHub Models.
 
     Requires GITHUB_TOKEN in the environment. To email, also requires
     EMAIL_SMTP_HOST, EMAIL_SMTP_USER, EMAIL_SMTP_PASSWORD, EMAIL_FROM, EMAIL_TO.
 
+    Customize genres and author influences by pointing --config at your own YAML.
+    The bundled config.yaml is the documented starting point.
+
     Examples:\n
       daily-spark\n
       daily-spark --email\n
       daily-spark --genre sf\n
+      daily-spark --config ~/my-spark.yaml\n
       daily-spark --model openai/gpt-4o
     """
-    genres = {genre: GENRES[genre]} if genre else GENRES
+    config = _load_config(config_path)
+    all_genres = _build_genres(config)
+    writer_profile = config.get("writer_profile", {})
+
+    if genre:
+        if genre not in all_genres:
+            click.echo(f"Unknown genre '{genre}'. Available: {', '.join(all_genres)}", err=True)
+            sys.exit(1)
+        genres = {genre: all_genres[genre]}
+    else:
+        genres = all_genres
 
     click.echo(f"\n  Generating {len(genres)} prompt(s) via GitHub Models ({model})...\n", err=True)
 
-    prompts = _generate_prompts(genres, model)
+    prompts = _generate_prompts(genres, model, writer_profile)
 
     if not prompts:
         click.echo("No prompts generated. Check your GITHUB_TOKEN.", err=True)
@@ -102,7 +95,6 @@ def cli(email, genre, model, print_html, output):
         return
 
     if output:
-        from pathlib import Path
         Path(output).parent.mkdir(parents=True, exist_ok=True)
         Path(output).write_text(html, encoding="utf-8")
         click.echo(f"  Written to {output}", err=True)
@@ -120,7 +112,7 @@ def cli(email, genre, model, print_html, output):
         click.echo("  Done.", err=True)
 
 
-def _generate_prompts(genres: dict, model: str) -> dict[str, str]:
+def _generate_prompts(genres: dict, model: str, writer_profile: dict | None = None) -> dict[str, str]:
     """Call GitHub Models and return {genre_key: prompt_text}."""
     client = _github_client()
 
@@ -129,12 +121,25 @@ def _generate_prompts(genres: dict, model: str) -> dict[str, str]:
         for key, g in genres.items()
     )
 
+    profile_block = ""
+    if writer_profile:
+        background = writer_profile.get("background", "").strip()
+        influences = writer_profile.get("influences", [])
+        parts = []
+        if background:
+            parts.append(f"Writer background: {background}")
+        if influences:
+            parts.append("Cross-genre literary touchstones: " + "; ".join(influences))
+        if parts:
+            profile_block = "\n\n" + " ".join(parts)
+
     prompt = (
         "You are a creative writing spark generator. Your job is to produce specific, "
         "evocative writing prompts — not themes or topics, but *situations*. "
         "Each prompt should have a character in a specific moment of tension or discovery, "
         "a vivid setting detail, and enough open space for the writer to go anywhere. "
-        "2-3 sentences max. No generic advice. No 'write a story about'. Just the spark.\n\n"
+        "2-3 sentences max. No generic advice. No 'write a story about'. Just the spark."
+        f"{profile_block}\n\n"
         f"Generate one prompt for each of these genres, matching the stated preferences:\n{genre_list}\n\n"
         "Respond with JSON only — no explanation, no markdown:\n"
         "{\n"

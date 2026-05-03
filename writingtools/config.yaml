@@ -1,0 +1,66 @@
+# daily-spark configuration
+# Copy this file and point to it with --config or SPARK_CONFIG env var
+# to customize for your own writing practice.
+
+writer_profile:
+  background: >
+    Hodinǫ̱hsǫ́:nih and Ngäbe-Buglé Indigenous author writing across genres.
+  influences:
+    - Voltaire (wit, moral clarity, the absurd used as a blade)
+    - Kurt Vonnegut (dark humor, humanity under pressure, structural playfulness)
+    - Dante (moral architecture, the descent, consequence as landscape)
+    - Fred Hellerman (folk tradition, protest embedded in the everyday)
+    - Viking Sagas (terse prose, fate, honour-debt, the world as myth)
+    - Native storytelling and folktales (land as character, cyclical time, the trickster)
+
+genres:
+  sf:
+    label: Science Fiction
+    icon: "🚀"
+    color: "#1a3a5c"
+    preferences: >
+      Space opera, alternate histories, dystopias, solarpunk, and Indigenous futurism.
+      The writer is a Hodinǫ̱hsǫ́:nih and Ngäbe-Buglé Indigenous author — prompts that touch
+      Indigenous futures, sovereignty, or relationships with land and cosmos are especially welcome.
+    influences:
+      - Ursula K. Le Guin (anthropological depth, quiet moral weight)
+      - Brian Daley (pulpy space opera energy)
+      - Joe Haldeman (war, trauma, the long cost)
+      - Iain M. Banks (post-scarcity complexity, dark wit)
+      - Elliott Kay (grounded characters in big situations)
+
+  fantasy:
+    label: Fantasy
+    icon: "⚔️"
+    color: "#2d1b4e"
+    preferences: >
+      Grimdark fantasy. Moral ambiguity, hard choices, consequences that linger.
+      No chosen-one tropes. No clean endings required.
+    influences:
+      - Terry Pratchett (dark humour, humanity beneath the grime)
+      - Joe Abercrombie (brutal realism, characters who do terrible things for understandable reasons)
+
+  western:
+    label: Western
+    icon: "🌵"
+    color: "#4a2c0a"
+    preferences: >
+      Neo-westerns and classic westerns with strong Indigenous perspectives and characters.
+      The frontier from the other side. Land, sovereignty, survival, justice on the margins.
+    influences:
+      - Taylor Sheridan (modern moral complexity, landscape as character)
+      - Margaret Coel (Arapaho community and culture at the center)
+      - Tony Hillerman (place-driven, Indigenous detective tradition)
+
+  mystery:
+    label: Mystery
+    icon: "🕵️"
+    color: "#1a2a1a"
+    preferences: >
+      Neo-noir and hardboiled mysteries. Corrupt systems, flawed investigators, cities with memory.
+    influences:
+      - James Ellroy (brutal LA noir, institutional rot)
+      - Walter Mosley (Easy Rawlins — race, power, community)
+      - Dennis Lehane (Boston working-class, moral ambiguity)
+      - John Sandford (procedural tension, dark humor)
+      - Robert Crais (character-driven LA detective work)
