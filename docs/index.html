@@ -61,6 +61,40 @@ body {
   line-height: 1.75;
   color: #ddd;
 }
+details.beats {
+  background: #111;
+  border-top: 1px solid #222;
+}
+details.beats summary {
+  padding: 10px 20px;
+  font-family: system-ui, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #555;
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+}
+details.beats summary::-webkit-details-marker { display: none; }
+details.beats summary::after {
+  content: " ▾";
+  font-size: 0.65rem;
+}
+details.beats[open] summary::after {
+  content: " ▴";
+}
+details.beats summary:hover { color: #888; }
+details.beats ol {
+  padding: 4px 20px 18px 36px;
+  font-family: system-ui, sans-serif;
+  font-size: 0.82rem;
+  line-height: 1.7;
+  color: #666;
+}
+details.beats ol li { margin-bottom: 4px; }
+details.beats ol li:last-child { margin-bottom: 0; }
 .footer {
   margin-top: 36px;
   padding-top: 20px;
@@ -84,54 +118,120 @@ body {
     <div class="card-header" style="background: #1a3a5c;">
       <span>🚀</span>
       <span>Science Fiction</span>
-      <span style="margin-left: auto; font-weight: 400; opacity: 0.6; text-transform: none; letter-spacing: 0;">kenburns</span>
+      <span style="margin-left: auto; font-weight: 400; opacity: 0.6; text-transform: none; letter-spacing: 0;">pulp</span>
     </div>
-    <div class="card-body">In the year 2264, a letter unearthed on the desolate remnants of Earth reveals the final thoughts of Nova Kline, a once-revered diplomat, who penned, 'We were never meant to leave.' The camera pans across crumbling skyscrapers and barren landscapes, hinting at the cost of humanity's ambition as a colony ship approaches a distant planet, unaware of the secrets buried beneath its surface.</div>
+    <div class="card-body">The dame walked in, hair like starlight and a secret draped across her shoulders, asking questions about the missing scientist last seen on the ruined moon of Obsidian, where shadows whispered lies and hope sputtered like a dying engine.</div>
+  <details class="beats">
+    <summary>Plot beats</summary>
+    <ol>
+    <li>A scientist vanishes during an experimental mission.</li>
+    <li>The protagonist, a washed-up detective, is hired by a mysterious woman.</li>
+    <li>They travel to Obsidian, encountering dangerous space gangs.</li>
+    <li>Clues lead to a hidden research facility with dark secrets.</li>
+    <li>The truth about the scientist reveals a conspiracy affecting worlds.</li>
+    <li>A final showdown with the true antagonist on the moon's edge.</li>
+    </ol>
+  </details>
   </div>
 
   <div class="card">
     <div class="card-header" style="background: #2d1b4e;">
       <span>⚔️</span>
       <span>Fantasy</span>
-      <span style="margin-left: auto; font-weight: 400; opacity: 0.6; text-transform: none; letter-spacing: 0;">bestseller</span>
+      <span style="margin-left: auto; font-weight: 400; opacity: 0.6; text-transform: none; letter-spacing: 0;">pulp</span>
     </div>
-    <div class="card-body">In a kingdom where loyalty is a currency more valuable than gold, a scorned knight must decide whether to betray his sworn oaths to save his dying love, cursed to fade with each lie he tells. As darkness gathers over the land, the air crackles with the tension of choices yet to be made, and the shadows whisper of blood debts yet unpaid.</div>
+    <div class="card-body">In the dim light of a cursed tavern, the witch dropped a matched pair of silver rings on the table, each one inscribed with the name of a fallen hero, while the air thickened with the unmistakable stench of betrayal and blood.</div>
+  <details class="beats">
+    <summary>Plot beats</summary>
+    <ol>
+    <li>A hero's body is found, igniting old rivalries in a brutal kingdom.</li>
+    <li>The protagonist discovers a plot involving the witch's cursed rings.</li>
+    <li>Each ring holds the power to revive the dead but at a cost.</li>
+    <li>Allies become enemies as trust shatters under greed.</li>
+    <li>A moral choice arises — save the fallen hero or protect the realm.</li>
+    <li>The final confrontation reveals true loyalties and sacrifices.</li>
+    </ol>
+  </details>
   </div>
 
   <div class="card">
     <div class="card-header" style="background: #4a2c0a;">
       <span>🌵</span>
       <span>Western</span>
-      
+      <span style="margin-left: auto; font-weight: 400; opacity: 0.6; text-transform: none; letter-spacing: 0;">kenburns</span>
     </div>
-    <div class="card-body">The train rattles to a stop in the dust-choked town of Dry Creek, where a stranger with a scarred face steps off, clutching a satchel filled with the last remnants of a missing man. As the sun sinks low, the townsfolk eye him with suspicion, knowing justice is a fragile thing in these parts, and the landscape around them feels like a witness to every sin.</div>
+    <div class="card-body">In the dry heat of a fading landscape, a letter from a fallen comrade guided the sheriff back to the ghost town of Dry Gulch, where the old saloon still echoed with the memories of gunfights and long-buried sins.</div>
+  <details class="beats">
+    <summary>Plot beats</summary>
+    <ol>
+    <li>The sheriff receives a letter hinting at buried gold and betrayal.</li>
+    <li>Returning to Dry Gulch, he confronts old ghosts and new foes.</li>
+    <li>Rival factions vie for control over the town and its secrets.</li>
+    <li>A showdown in the saloon reveals hidden truths about loyalty.</li>
+    <li>The sheriff must choose between the law and his own honor.</li>
+    <li>A tragic end leads to a haunting legacy for the ghost town.</li>
+    </ol>
+  </details>
   </div>
 
   <div class="card">
     <div class="card-header" style="background: #2a2a1a;">
       <span>🪖</span>
       <span>WW2</span>
-      <span style="margin-left: auto; font-weight: 400; opacity: 0.6; text-transform: none; letter-spacing: 0;">xfiles</span>
+      <span style="margin-left: auto; font-weight: 400; opacity: 0.6; text-transform: none; letter-spacing: 0;">pulp</span>
     </div>
-    <div class="card-body">Case File: 1943. Subject: Operation Sirocco. This document outlines the peculiar events surrounding a unit tasked with disrupting enemy supply lines, only to encounter an inexplicable absence of communication and a series of increasingly absurd accidents. Witness testimony suggests a hidden influence, possibly a supernatural force; further investigation is deemed necessary, though classified reports present conflicting narratives that suggest otherwise.</div>
+    <div class="card-body">The dame walked in, a cigarette dangling from her lips and secrets sewn into the hem of her dress, as she slid a file across the table filled with impossible missions and a code that could change the tide of the war.</div>
+  <details class="beats">
+    <summary>Plot beats</summary>
+    <ol>
+    <li>A small unit is tasked with retrieving a stolen codebook.</li>
+    <li>The team navigates through enemy territory and moral dilemmas.</li>
+    <li>Old grudges resurface, testing alliances within the unit.</li>
+    <li>Dark humor emerges as they face absurd warfare situations.</li>
+    <li>A betrayal leads to a desperate escape plan.</li>
+    <li>The mission's success or failure could shift the war's balance.</li>
+    </ol>
+  </details>
   </div>
 
   <div class="card">
     <div class="card-header" style="background: #1a2a1a;">
       <span>🕵️</span>
       <span>Mystery</span>
-      <span style="margin-left: auto; font-weight: 400; opacity: 0.6; text-transform: none; letter-spacing: 0;">academic</span>
+      <span style="margin-left: auto; font-weight: 400; opacity: 0.6; text-transform: none; letter-spacing: 0;">xfiles</span>
     </div>
-    <div class="card-body">This paper examines the peculiar case of a once-prominent socialite found dead in her lavish home, the circumstances of which reveal layers of deceit embedded within the city's elite. Preliminary analysis indicates that each suspect harbors a motive obscured by layers of charm and scandal, prompting questions about the integrity of personal relationships amidst institutional decay.</div>
+    <div class="card-body">The rain lashed against the window as the private eye flipped open the case file, revealing a series of clues that led to a beautiful con artist playing a dangerous game in a city teetering on the brink of chaos.</div>
+  <details class="beats">
+    <summary>Plot beats</summary>
+    <ol>
+    <li>A series of high-profile thefts point to an elusive con artist.</li>
+    <li>The private eye meets the dame, drawn into her web of lies.</li>
+    <li>Each clue uncovers layers of corruption in the city.</li>
+    <li>An unexpected twist reveals a connection to the detective's past.</li>
+    <li>The final confrontation forces the detective to choose between justice and desire.</li>
+    <li>The resolution leaves questions about truth and morality.</li>
+    </ol>
+  </details>
   </div>
 
   <div class="card">
     <div class="card-header" style="background: #1a1a2a;">
       <span>🔫</span>
       <span>Thriller / Espionage</span>
-      <span style="margin-left: auto; font-weight: 400; opacity: 0.6; text-transform: none; letter-spacing: 0;">campfire</span>
+      <span style="margin-left: auto; font-weight: 400; opacity: 0.6; text-transform: none; letter-spacing: 0;">satiric</span>
     </div>
-    <div class="card-body">They say that in the quiet corners of the city, where shadows dance and lovers whisper, a woman stumbles upon a concealed truth that unravels everything she thought she knew about her husband. As she retraces her steps through the winding streets, the sense of dread grows, and every glance over her shoulder echoes with the weight of secrets waiting to be uncovered.</div>
+    <div class="card-body">In a crumbling mansion that seemed to breathe dread, the strategist discovered a hidden room filled with surveillance equipment and clues hinting that someone was watching her every move, waiting to strike when she least expected it.</div>
+  <details class="beats">
+    <summary>Plot beats</summary>
+    <ol>
+    <li>The protagonist uncovers a conspiracy tied to her own family.</li>
+    <li>Identity and loyalty blur as allies turn suspicious.</li>
+    <li>A game of cat and mouse ensues with unseen enemies.</li>
+    <li>Each piece of evidence raises the stakes and paranoia.</li>
+    <li>A shocking betrayal changes everything in a moment of truth.</li>
+    <li>The final revelation exposes the mastermind and their motives.</li>
+    </ol>
+  </details>
   </div>
     <div class="footer">
       Generated by creative-tools &middot; GitHub Models &middot; Sunday, May 3, 2026
