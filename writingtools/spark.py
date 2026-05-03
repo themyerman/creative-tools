@@ -16,8 +16,11 @@ GENRES = {
         "color": "#1a3a5c",
         "preferences": (
             "space opera, alternate histories, dystopias, solarpunk, and Indigenous futurism. "
-            "The writer is a Hodinǫ̱hsǫ́:nih and Ngäbe-Buglé Indigenous author — "
-            "prompts that touch Indigenous futures, sovereignty, or relationships with land and cosmos are especially welcome."
+            "The writer is a Hodinǫ̱hsǫ́:nih and Ngäbe-Buglé Indigenous author — prompts that touch "
+            "Indigenous futures, sovereignty, or relationships with land and cosmos are especially welcome. "
+            "Tonal influences: Ursula K. Le Guin (anthropological depth, quiet moral weight), "
+            "Brian Daley (pulpy space opera energy), Joe Haldeman (war, trauma, the long cost), "
+            "Iain M. Banks (post-scarcity complexity, dark wit), Elliott Kay (grounded characters in big situations)."
         ),
     },
     "fantasy": {
@@ -26,7 +29,9 @@ GENRES = {
         "color": "#2d1b4e",
         "preferences": (
             "grimdark fantasy. Moral ambiguity, hard choices, consequences that linger. "
-            "No chosen-one tropes. No clean endings required."
+            "No chosen-one tropes. No clean endings required. "
+            "Tonal influences: Terry Pratchett (dark humour, humanity beneath the grime) and "
+            "Joe Abercrombie (brutal realism, characters who do terrible things for understandable reasons)."
         ),
     },
     "western": {
@@ -34,8 +39,11 @@ GENRES = {
         "icon": "🌵",
         "color": "#4a2c0a",
         "preferences": (
-            "neo-westerns and classic westerns, with special attention to Indigenous perspectives "
-            "and characters. The frontier from the other side. Land, survival, justice on the margins."
+            "neo-westerns and classic westerns with strong Indigenous perspectives and characters. "
+            "The frontier from the other side. Land, sovereignty, survival, justice on the margins. "
+            "Tonal influences: Taylor Sheridan (modern moral complexity, landscape as character), "
+            "Margaret Coel (Arapaho community and culture at the center), "
+            "Tony Hillerman (place-driven, Indigenous detective tradition)."
         ),
     },
     "mystery": {
@@ -43,8 +51,12 @@ GENRES = {
         "icon": "🕵️",
         "color": "#1a2a1a",
         "preferences": (
-            "noir mysteries but also cozy detective fiction in the vein of Poirot or Midsommar Murders. "
-            "A good puzzle, a strong sense of place, and a detective with an interesting perspective."
+            "neo-noir and hardboiled mysteries. Corrupt systems, flawed investigators, cities with memory. "
+            "Tonal influences: James Ellroy (brutal LA noir, institutional rot), "
+            "Walter Mosley (Easy Rawlins — race, power, community), "
+            "Dennis Lehane (Boston working-class, moral ambiguity), "
+            "John Sandford (procedural tension, dark humor), "
+            "Robert Crais (character-driven LA detective work)."
         ),
     },
 }
