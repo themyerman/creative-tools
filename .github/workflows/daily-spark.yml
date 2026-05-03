@@ -41,7 +41,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           EMAIL_SMTP_HOST: ${{ secrets.EMAIL_SMTP_HOST }}
-          EMAIL_SMTP_PORT: ${{ secrets.EMAIL_SMTP_PORT }}
           EMAIL_SMTP_USER: ${{ secrets.EMAIL_SMTP_USER }}
           EMAIL_SMTP_PASSWORD: ${{ secrets.EMAIL_SMTP_PASSWORD }}
           EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
