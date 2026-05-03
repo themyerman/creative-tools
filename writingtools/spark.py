@@ -55,7 +55,7 @@ GENRES = {
               help="Generate prompts and send via email")
 @click.option("--genre", type=click.Choice(list(GENRES)), default=None,
               help="Generate only one genre (default: all four)")
-@click.option("--model", default="openai/gpt-4o-mini", show_default=True,
+@click.option("--model", default="gpt-4o-mini", show_default=True,
               help="GitHub Models model ID to use")
 @click.option("--print-html", is_flag=True, default=False,
               help="Print the rendered HTML to stdout instead of sending")
