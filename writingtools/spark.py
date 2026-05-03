@@ -42,10 +42,20 @@ def _build_genres(config: dict) -> dict:
 
 
 def _assign_voices(genres: dict, voice: str, voices: dict) -> dict[str, str]:
-    """Return {genre_key: voice_instruction}. 'random' picks a different voice per genre."""
+    """Return {genre_key: voice_instruction}. 'random' assigns each voice at most once per run."""
     if voice == "random":
         voice_names = list(voices.keys())
-        return {key: voices[random.choice(voice_names)] for key in genres}
+        if len(genres) <= len(voice_names):
+            chosen = random.sample(voice_names, len(genres))
+        else:
+            # More genres than voices — shuffle and tile, still no back-to-back repeats
+            chosen = []
+            while len(chosen) < len(genres):
+                chunk = voice_names[:]
+                random.shuffle(chunk)
+                chosen.extend(chunk)
+            chosen = chosen[:len(genres)]
+        return {key: voices[name] for key, name in zip(genres, chosen)}
     instruction = voices.get(voice, voices.get("neutral", ""))
     return {key: instruction for key in genres}
 

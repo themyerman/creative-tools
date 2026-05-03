@@ -31,6 +31,7 @@ SAMPLE_VOICES = {
     "neutral": "Crisp, evocative prose.",
     "trailer": "In a world where... everything is at stake.",
     "campfire": "Slow, oral, present tense.",
+    "pulp": "Lurid, punchy, the city is dangerous.",
 }
 
 SAMPLE_CONFIG = {
@@ -135,13 +136,10 @@ def test_assign_voices_fixed():
     assert all(v == SAMPLE_VOICES["trailer"] for v in result.values())
 
 
-def test_assign_voices_random_varies():
+def test_assign_voices_random_no_repeats():
     genres = _build_genres(SAMPLE_CONFIG)
-    seen = set()
-    for _ in range(20):
-        result = _assign_voices(genres, "random", SAMPLE_VOICES)
-        seen.update(result.values())
-    assert len(seen) > 1
+    result = _assign_voices(genres, "random", SAMPLE_VOICES)
+    assert len(set(result.values())) == len(result)
 
 
 def test_assign_voices_falls_back_to_neutral():
