@@ -23,6 +23,7 @@ jobs:
     name: Generate & Send
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    environment: creative_tools
 
     steps:
       - name: Checkout
