@@ -21,6 +21,8 @@ extract-palette = "arttools.extract_palette:cli"
 next-painting = "arttools.next_painting:cli"
 patreon-plan = "arttools.patreon_plan:cli"
 mood-board = "arttools.mood_board:cli"
+batch-resize = "arttools.batch_resize:cli"
+color-match = "arttools.color_match:cli"
 
 [tool.setuptools.packages.find]
 where = ["."]
