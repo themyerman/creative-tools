@@ -90,33 +90,46 @@ genres:
     icon: "🕵️"
     color: "#1a2a1a"
     preferences: >
-      Neo-noir and hardboiled mysteries. Corrupt systems, flawed investigators, cities with memory.
+      Hardboiled and neo-noir mysteries. The detective's eye on a corrupt city.
+      Language matters — the best line in the scene should belong to the investigator.
+      Atmosphere, moral weight, the truth that doesn't set anyone free.
     influences:
+      - Raymond Chandler (the gold standard — Marlowe, LA, prose as sharp as a blade)
+      - Dashiell Hammett (spare, hard, the Continental Op and Sam Spade)
       - James Ellroy (brutal LA noir, institutional rot)
       - Walter Mosley (Easy Rawlins — race, power, community)
       - Dennis Lehane (Boston working-class, moral ambiguity)
       - John Sandford (procedural tension, dark humor)
       - Robert Crais (character-driven LA detective work)
     screen_influences:
+      - The Big Sleep (Chandler's LA, Bogart, everyone lying to everyone)
+      - The Maltese Falcon (the object everyone wants, the trust no one deserves)
+      - Mystic River (grief as rot, community consumed by its own secret)
       - Drive (silence, violence, a man defined by one thing)
       - L.A. Confidential (institutional corruption, glamour over rot)
-      - Body Heat (heat, desire, everyone lying to everyone)
+      - Body Heat (heat, desire, the con that costs everything)
 
   thriller:
     label: Thriller / Espionage
     icon: "🔫"
     color: "#1a1a2a"
     preferences: >
-      Espionage, political thrillers, and tradecraft fiction. Moral ambiguity baked in —
-      the right side and wrong side look identical from inside the operation.
-      Tension through information gaps, not action. Characters who are good at terrible things.
+      Psychological thrillers and espionage fiction. Dread built from what isn't said.
+      Identity under pressure, unreliable perception, the moment the ground shifts.
+      Characters who are good at terrible things — or who discover they might be.
     influences:
       - John le Carré (institutional betrayal, the human cost of the game)
+      - Daphne du Maurier (gothic dread, psychological unease, the house that watches back)
+      - Gillian Flynn (the unreliable narrator as weapon, domestic horror with teeth)
       - Graham Greene (conscience under pressure, faith and doubt in the field)
       - Charles McCarry (Cold War realism, the long slow burn)
       - Daniel Silva (operational detail, contemporary stakes)
     screen_influences:
+      - Rebecca (du Maurier — the second wife, the house, the woman who isn't there)
+      - Silence of the Lambs (the monster who helps, the cost of looking into the dark)
+      - Gone Girl (the marriage as crime scene, two unreliable narrators)
+      - Shutter Island (reality as the threat, the mind as the locked room)
+      - The 39 Steps (Hitchcock — the wrong man, keep moving or die)
       - Tinker Tailor Soldier Spy (bureaucratic paranoia, silence as weapon)
       - The Americans (the cost of the life, identity erosion)
       - Three Days of the Condor (anyone could be the enemy)
-      - No Country for Old Men (unstoppable force, fate as antagonist)
