@@ -1,0 +1,62 @@
+name: Daily Writing Spark
+
+on:
+  schedule:
+    # 7:00 AM MDT (13:00 UTC) — adjust if you want a different time
+    - cron: "0 13 * * *"
+  workflow_dispatch:
+    inputs:
+      send_email:
+        description: "Send email?"
+        type: boolean
+        default: true
+      genre:
+        description: "Single genre (sf/fantasy/western/mystery), or leave blank for all"
+        type: string
+        default: ""
+
+permissions:
+  models: read
+
+jobs:
+  spark:
+    name: Generate & Send
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.2.2
+
+      - name: Set up Python
+        uses: actions/setup-python@v5.6.0
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install package
+        run: pip install .
+
+      - name: Generate and send spark
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EMAIL_SMTP_HOST: ${{ secrets.EMAIL_SMTP_HOST }}
+          EMAIL_SMTP_PORT: ${{ secrets.EMAIL_SMTP_PORT }}
+          EMAIL_SMTP_USER: ${{ secrets.EMAIL_SMTP_USER }}
+          EMAIL_SMTP_PASSWORD: ${{ secrets.EMAIL_SMTP_PASSWORD }}
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+        run: |
+          GENRE_FLAG=""
+          if [ -n "${{ inputs.genre }}" ]; then
+            GENRE_FLAG="--genre ${{ inputs.genre }}"
+          fi
+
+          SEND_FLAG=""
+          # Always email on schedule; respect input on manual trigger
+          if [ "${{ github.event_name }}" = "schedule" ] || \
+             [ "${{ inputs.send_email }}" = "true" ]; then
+            SEND_FLAG="--email"
+          fi
+
+          daily-spark $GENRE_FLAG $SEND_FLAG

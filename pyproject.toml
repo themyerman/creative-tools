@@ -13,6 +13,7 @@ dependencies = [
     "Pillow>=10.0",
     "click>=8.1",
     "ddgs>=0.1",
+    "openai>=1.0",
 ]
 
 [project.scripts]
@@ -23,10 +24,11 @@ patreon-plan = "arttools.patreon_plan:cli"
 mood-board = "arttools.mood_board:cli"
 batch-resize = "arttools.batch_resize:cli"
 color-match = "arttools.color_match:cli"
+daily-spark = "writingtools.spark:cli"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["arttools*"]
+include = ["arttools*", "writingtools*"]
 
 [tool.setuptools.package-data]
 arttools = ["templates/*.html"]
