@@ -59,7 +59,9 @@ GENRES = {
               help="GitHub Models model ID to use")
 @click.option("--print-html", is_flag=True, default=False,
               help="Print the rendered HTML to stdout instead of sending")
-def cli(email, genre, model, print_html):
+@click.option("--output", "-o", type=click.Path(), default=None,
+              help="Write HTML to a file (e.g. docs/index.html)")
+def cli(email, genre, model, print_html, output):
     """Generate daily writing sparks — one prompt per genre — via GitHub Models.
 
     Requires GITHUB_TOKEN in the environment. To email, also requires
@@ -85,6 +87,13 @@ def cli(email, genre, model, print_html):
 
     if print_html:
         click.echo(html)
+        return
+
+    if output:
+        from pathlib import Path
+        Path(output).parent.mkdir(parents=True, exist_ok=True)
+        Path(output).write_text(html, encoding="utf-8")
+        click.echo(f"  Written to {output}", err=True)
         return
 
     # Always print to terminal
