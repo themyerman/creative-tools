@@ -72,7 +72,7 @@ body {
 """
 
 
-def render_email(prompts: dict[str, str], genres: dict) -> str:
+def render_email(prompts: dict[str, str], genres: dict, voice_names: dict | None = None) -> str:
     today = date.today().strftime("%A, %B %-d, %Y")
 
     cards = []
@@ -81,11 +81,18 @@ def render_email(prompts: dict[str, str], genres: dict) -> str:
         icon = g.get("icon", "✦")
         label = g.get("label", key.title())
         color = g.get("color", "#1a1a1a")
+        vname = (voice_names or {}).get(key)
+        voice_badge = (
+            f'<span style="margin-left: auto; font-weight: 400; opacity: 0.6; '
+            f'text-transform: none; letter-spacing: 0;">{vname}</span>'
+            if vname and vname != "neutral" else ""
+        )
         cards.append(f"""
   <div class="card">
     <div class="card-header" style="background: {color};">
       <span>{icon}</span>
       <span>{label}</span>
+      {voice_badge}
     </div>
     <div class="card-body">{text}</div>
   </div>""")

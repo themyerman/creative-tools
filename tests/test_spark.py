@@ -4,7 +4,7 @@ import textwrap
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
-from writingtools.spark import cli, _generate_prompts, _load_config, _build_genres
+from writingtools.spark import cli, _generate_prompts, _load_config, _build_genres, _assign_voices
 from writingtools.render import render_email
 from click.testing import CliRunner
 
@@ -62,6 +62,13 @@ def _mock_client(prompts=SAMPLE_PROMPTS):
     return mock
 
 
+SAMPLE_VOICES = {
+    "neutral": "Crisp, evocative prose.",
+    "trailer": "In a world where... everything is at stake.",
+    "campfire": "Slow, oral, present tense.",
+}
+
+
 # ── config loading ────────────────────────────────────────────────────────────
 
 def test_load_config_bundled():
@@ -94,6 +101,28 @@ def test_build_genres_merges_influences():
     assert genres["sf"]["label"] == "Science Fiction"
 
 
+def test_assign_voices_fixed():
+    genres = _build_genres(SAMPLE_CONFIG)
+    result = _assign_voices(genres, "trailer", SAMPLE_VOICES)
+    assert all(v == SAMPLE_VOICES["trailer"] for v in result.values())
+
+
+def test_assign_voices_random_varies():
+    genres = _build_genres(SAMPLE_CONFIG)
+    # With 4 genres and 3 voices, random assignment will vary (run enough times to be sure)
+    seen = set()
+    for _ in range(20):
+        result = _assign_voices(genres, "random", SAMPLE_VOICES)
+        seen.update(result.values())
+    assert len(seen) > 1
+
+
+def test_assign_voices_falls_back_to_neutral():
+    genres = _build_genres(SAMPLE_CONFIG)
+    result = _assign_voices(genres, "nonexistent", SAMPLE_VOICES)
+    assert all(v == SAMPLE_VOICES["neutral"] for v in result.values())
+
+
 def test_build_genres_no_influences():
     config = {
         "genres": {
@@ -115,6 +144,20 @@ def test_render_email_contains_all_genres():
     for g in genres.values():
         assert g["label"] in html
         assert g["icon"] in html
+
+
+def test_render_email_shows_voice_name():
+    genres = _build_genres(SAMPLE_CONFIG)
+    voice_names = {k: "trailer" for k in genres}
+    html = render_email(SAMPLE_PROMPTS, genres, voice_names)
+    assert "trailer" in html
+
+
+def test_render_email_hides_neutral_voice():
+    genres = _build_genres(SAMPLE_CONFIG)
+    voice_names = {k: "neutral" for k in genres}
+    html = render_email(SAMPLE_PROMPTS, genres, voice_names)
+    assert "neutral" not in html
 
 
 def test_render_email_contains_prompt_text():

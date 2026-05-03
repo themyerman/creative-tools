@@ -12,6 +12,51 @@ writer_profile:
     - Arthurian Romance (the wound that won't heal, the land and the lord as one, myth cycling through history)
     - Native storytelling and folktales (land as character, cyclical time, the trickster)
 
+voices:
+  neutral: >
+    Write as a crisp, evocative prose prompt — specific situation, vivid detail,
+    open space for the writer to go anywhere. No framing device.
+  trailer: >
+    Write in the style of a dramatic movie trailer voiceover. "In a world where..."
+    energy. Portentous pauses implied by em-dashes. Everything is the most important
+    thing that has ever happened. Capitalize Key Words for Emphasis. End on a
+    haunting question or a declaration of inevitability.
+  bestseller: >
+    Write in the style of a New York Times bestseller jacket blurb. Breathless,
+    propulsive, one sentence that makes you feel the stakes before you've read a word.
+    Comparisons implied, not stated. The kind of copy that makes someone pick it up
+    in an airport.
+  xfiles: >
+    Write in the style of an X-Files case file or conspiracy voiceover. Clinical
+    surface, dread underneath. Reference unexplained phenomena with bureaucratic
+    detachment. The truth is in there somewhere but you'll never find it through
+    official channels. Mulder would believe it. Scully would need more evidence.
+  trashy: >
+    Write in the style of a trashy mass-market paperback back cover. Heaving,
+    overwrought, someone's desire is described as "smoldering." Exclamation points
+    are acceptable. The danger is real but so is the attraction. Italics for
+    dramatic effect.
+  campfire: >
+    Write in the style of an oral storytelling tradition — the campfire voice.
+    Slow, deliberate, present tense feels right. "There was a man once..." or
+    "They say that on that road..." Build dread or wonder through simplicity.
+    Leave a silence at the end that the listener has to fill.
+  kenburns: >
+    Write in the style of a Ken Burns documentary narration. Measured, elegiac,
+    the weight of history in every sentence. Quote a letter or diary entry if it
+    fits. A name, a date, a place. "He would not survive the winter." The camera
+    pans slowly across a faded photograph.
+  pulp: >
+    Write in the style of a 1950s pulp magazine story opener. Lurid, punchy,
+    the city is always dangerous and someone is always lying. Dangerous characters
+    with dangerous names. Short sentences. The dame walked in and everything
+    went sideways.
+  academic: >
+    Write in the style of an academic abstract — dry, clinical, passive voice,
+    jargon that almost obscures the fact that the subject matter is completely
+    unhinged. "This paper examines..." Apply this to the most dramatic scenario
+    possible for maximum comedic effect.
+
 genres:
   sf:
     label: Science Fiction
