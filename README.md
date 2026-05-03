@@ -11,15 +11,9 @@ Built for [myerman.art](https://myerman.art) — a portfolio of Indigenous digit
 | Command | What it does |
 |---------|-------------|
 | `publish-print` | Publish a new print: optimize images, generate AI copy, update site files |
-| `extract-palette` | *(coming soon)* Extract a color palette from an artwork image |
-| `next-painting` | *(coming soon)* Analyze a body of work and suggest what to paint next |
-| `patreon-plan` | *(coming soon)* Generate a Patreon content calendar from recent work |
-
----
-
-## publish-print
-
-Automates adding a new print to the site: converts a source PNG into optimized web images, generates an artist statement and search tags via Claude, renders the print page HTML, and updates `search.json` and `feed.xml`.
+| `extract-palette` | Extract a color palette from an artwork image |
+| `next-painting` | Analyze a body of work and suggest what to paint next |
+| `patreon-plan` | Generate a multi-week Patreon content calendar from recent work |
 
 ### Install
 
@@ -28,6 +22,12 @@ pip install -e .
 export ANTHROPIC_API_KEY=sk-ant-...
 export MYERMAN_ART_DIR=/path/to/myerman-art   # defaults to ~/Desktop/code/myerman-art
 ```
+
+---
+
+## publish-print
+
+Automates adding a new print to the site: converts a source PNG into optimized web images, generates an artist statement and search tags via Claude, renders the print page HTML, and updates `search.json` and `feed.xml`.
 
 ### Usage
 
@@ -72,11 +72,157 @@ Then `git add . && git commit && git push` to publish.
 
 ---
 
+## extract-palette
+
+Extracts a color palette from any artwork image — locally or from a URL. Optionally asks Claude to name each color and describe the mood.
+
+### Usage
+
+```bash
+# Terminal output (default)
+extract-palette blood-crow.png
+
+# CSS custom properties
+extract-palette blood-crow.png --format css --colors 6 --output palette.css
+
+# JSON (pipeable)
+extract-palette https://myerman.art/prints/blood-crow/display.jpg --format json --no-ai
+
+# Skip AI naming
+extract-palette my-painting.png --no-ai
+```
+
+**Options:**
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--colors` / `-n` | 6 | Number of colors to extract |
+| `--format` / `-f` | `terminal` | `terminal`, `css`, or `json` |
+| `--context` / `-c` | | Brief note about the artwork — improves AI color names |
+| `--no-ai` | | Skip Claude naming, use hex codes only |
+| `--output` / `-o` | stdout | Write to file |
+
+### Output formats
+
+**Terminal** — ANSI color swatches with hex + name:
+```
+██  #c83220  Ember Red         (38%)
+██  #1a3a5c  Deep Ocean        (22%)
+```
+
+**CSS** — ready-to-paste custom properties:
+```css
+:root {
+  --painting-1: #c83220; /* Ember Red */
+  --painting-2: #1a3a5c; /* Deep Ocean */
+}
+```
+
+**JSON** — for scripting or further processing:
+```json
+{ "colors": [{ "hex": "#c83220", "name": "Ember Red", "frequency": 38 }], "mood": "intense, grounded" }
+```
+
+---
+
+## next-painting
+
+Analyzes a body of work and suggests what to paint next — looking for fresh ideas, gaps in the catalog, or opportunities to develop existing themes into series.
+
+### Usage
+
+```bash
+# Analyze a local directory of images
+next-painting ~/Desktop/new-art-for-site/png-archive
+
+# Analyze via site catalog (fetches search.json)
+next-painting https://myerman.art
+
+# Focus on gaps or series opportunities
+next-painting ~/art/ --style gaps
+next-painting ~/art/ --style series
+
+# Add personal context
+next-painting ~/art/ --context "feeling drawn to wildlife lately"
+```
+
+**Options:**
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--count` / `-n` | 10 | Max images to analyze (sampled evenly if more) |
+| `--context` / `-c` | | Brief note about your goals right now |
+| `--style` / `-s` | `all` | `ideas`, `gaps`, `series`, or `all` |
+
+### Output
+
+Claude returns three sections:
+1. **What I see in this body of work** — themes, strengths, patterns
+2. **5 specific painting suggestions** — working title, description, and why it fits
+3. **One bold idea** — something unexpected to push the work in a new direction
+
+---
+
+## patreon-plan
+
+Generates a week-by-week Patreon content calendar based on your recent work. Plans a mix of free teaser posts and paid patron-only content across six post types.
+
+### Usage
+
+```bash
+# 4-week plan (default), from local search.json
+patreon-plan
+
+# 8-week plan, 3 posts/week
+patreon-plan --weeks 8 --posts-per-week 3
+
+# From site URL, save to file
+patreon-plan --source https://myerman.art --format markdown --output plan.md
+
+# Paid-only plan, JSON output
+patreon-plan --tiers paid --format json
+```
+
+**Options:**
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--weeks` / `-w` | 4 | Number of weeks to plan |
+| `--posts-per-week` / `-p` | 2 | Posts per week |
+| `--source` / `-s` | local `search.json` | Path to search.json or site URL |
+| `--tiers` / `-t` | `all` | `free`, `paid`, or `all` |
+| `--format` / `-f` | `markdown` | `markdown` or `json` |
+| `--output` / `-o` | stdout | Write to file |
+
+### Post types mixed in
+
+- Early access / new print reveal
+- Process video or timelapse teaser
+- Behind-the-scenes / story behind the art
+- High-res download for patrons
+- Personal update / what's coming next
+- Q&A or patron request shoutout
+
+### Markdown output example
+
+```markdown
+## Week 1
+
+### Monday 2026-05-06 — 🔓 Free
+**Announcing: Blood Crow** _New print reveal_
+
+First look at the latest piece — available now in the shop.
+
+> **Write prompt:** Introduce Blood Crow with a short hook and a link to the print.
+```
+
+---
+
 ## Requirements
 
 - Python 3.10+
 - macOS (uses `sips` for image processing — no ImageMagick needed)
-- `ANTHROPIC_API_KEY` for AI copy generation
+- `ANTHROPIC_API_KEY` for AI features
 
 ---
 

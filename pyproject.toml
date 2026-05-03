@@ -17,6 +17,8 @@ dependencies = [
 [project.scripts]
 publish-print = "arttools.publish_print:cli"
 extract-palette = "arttools.extract_palette:cli"
+next-painting = "arttools.next_painting:cli"
+patreon-plan = "arttools.patreon_plan:cli"
 
 [tool.setuptools.packages.find]
 where = ["."]
