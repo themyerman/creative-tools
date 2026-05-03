@@ -5,7 +5,7 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
-from arttools.site_updater import update_search, update_feed
+from arttools.site_updater import update_search, update_feed, update_cart_js, update_404
 from arttools.publish_print import cli
 from click.testing import CliRunner
 
@@ -30,6 +30,37 @@ def _make_feed_xml(tmp: Path) -> Path:
         '  </item>\n'
         '  </channel>\n'
         '</rss>\n'
+    )
+    return p
+
+
+def _make_cart_js(tmp: Path) -> Path:
+    p = tmp / "cart.js"
+    p.write_text(
+        "(function () {\n"
+        "  var SKU_TO_SIZE = {\n"
+        "    'OLD-PRINT': '12×12',\n"
+        "  };\n"
+        "\n"
+        "  // Fallback map for cart items saved before slug was stored\n"
+        "  var SKU_TO_SLUG = {\n"
+        "    'OLD-PRINT': 'old-print',\n"
+        "  };\n"
+        "\n"
+        "  function getCart() { return []; }\n"
+        "})();\n"
+    )
+    return p
+
+
+def _make_404_html(tmp: Path) -> Path:
+    p = tmp / "404.html"
+    p.write_text(
+        "<html><body><script>\n"
+        "  var all = [\n"
+        "          { slug: \"old-print\",  title: \"Old Print\" },\n"
+        "        ];\n"
+        "</script></body></html>\n"
     )
     return p
 
@@ -68,13 +99,62 @@ def test_update_feed_skips_duplicate(tmp_path, monkeypatch):
     assert result is False
 
 
+def test_update_cart_js_adds_sku(tmp_path, monkeypatch):
+    p = _make_cart_js(tmp_path)
+    monkeypatch.setattr("arttools.site_updater.CART_JS", p)
+    result = update_cart_js("WOLF-MOON", "12x9", "wolf-moon")
+    assert result is True
+    content = p.read_text()
+    assert "'WOLF-MOON': '12×9'" in content
+
+
+def test_update_cart_js_adds_to_slug_map_when_differs(tmp_path, monkeypatch):
+    p = _make_cart_js(tmp_path)
+    monkeypatch.setattr("arttools.site_updater.CART_JS", p)
+    update_cart_js("FUT-MOON", "12x12", "futurism-moon-landing")
+    content = p.read_text()
+    assert "'FUT-MOON'" in content
+    assert "futurism-moon-landing" in content
+
+
+def test_update_cart_js_skips_duplicate(tmp_path, monkeypatch):
+    p = _make_cart_js(tmp_path)
+    monkeypatch.setattr("arttools.site_updater.CART_JS", p)
+    result = update_cart_js("OLD-PRINT", "12x12", "old-print")
+    assert result is False
+
+
+def test_update_cart_js_size_format(tmp_path, monkeypatch):
+    p = _make_cart_js(tmp_path)
+    monkeypatch.setattr("arttools.site_updater.CART_JS", p)
+    update_cart_js("ABSTRACT-99", "9x12", "abstract-99")
+    content = p.read_text()
+    assert "'9×12'" in content
+
+
+def test_update_404_adds_slug(tmp_path, monkeypatch):
+    p = _make_404_html(tmp_path)
+    monkeypatch.setattr("arttools.site_updater.PAGE_404", p)
+    result = update_404("wolf-moon", "Wolf Moon")
+    assert result is True
+    content = p.read_text()
+    assert 'slug: "wolf-moon"' in content
+    assert 'title: "Wolf Moon"' in content
+
+
+def test_update_404_skips_duplicate(tmp_path, monkeypatch):
+    p = _make_404_html(tmp_path)
+    monkeypatch.setattr("arttools.site_updater.PAGE_404", p)
+    result = update_404("old-print", "Old Print")
+    assert result is False
+
+
 # ── CLI dry-run test ──────────────────────────────────────────────────────────
 
 def test_cli_dry_run(tmp_path):
     """Dry run should produce output and exit cleanly without touching any files."""
-    # Create a minimal PNG-like file (sips not called in dry-run)
     fake_png = tmp_path / "test.png"
-    fake_png.write_bytes(b"\x89PNG\r\n\x1a\n")  # PNG magic bytes
+    fake_png.write_bytes(b"\x89PNG\r\n\x1a\n")
 
     search = tmp_path / "search.json"
     search.write_text("[]")
@@ -100,5 +180,4 @@ def test_cli_dry_run(tmp_path):
 
     assert result.exit_code == 0, result.output
     assert "dry-run" in result.output.lower() or "DRY RUN" in result.output
-    # No files should have been created in prints_dir
     assert not list(prints_dir.iterdir())

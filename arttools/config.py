@@ -8,6 +8,7 @@ PRINTS_DIR    = SITE_DIR / "prints"
 SEARCH_JSON   = SITE_DIR / "search.json"
 FEED_XML      = SITE_DIR / "feed.xml"
 CART_JS       = SITE_DIR / "js" / "cart.js"
+PAGE_404      = SITE_DIR / "404.html"
 
 SITE_BASE_URL = "https://myerman.art"
 PRINT_PRICE   = 30

@@ -10,7 +10,7 @@ from jinja2 import Environment, PackageLoader
 from .config import PRINTS_DIR, PRINT_PRICE, SITE_BASE_URL
 from .image_ops import optimize_print
 from .ai_writer import generate_description
-from .site_updater import update_search, update_feed
+from .site_updater import update_search, update_feed, update_cart_js, update_404
 
 
 SIZE_TO_DIMS = {
@@ -135,7 +135,29 @@ def cli(file, title, sku, size, prompt, slug, price, dry_run):
     else:
         click.echo("     [dry-run: would prepend <item>]")
 
-    # ── 6. Report ─────────────────────────────────────────────────────────────
+    # ── 6. Update cart.js ─────────────────────────────────────────────────────
+    click.echo(f"\n  ✦  Updating js/cart.js")
+    if not dry_run:
+        added = update_cart_js(sku, size, slug)
+        status = "added" if added else "already present — skipped"
+        click.echo(f"     {status}")
+        if added:
+            report["actions"].append("cart-js")
+    else:
+        click.echo("     [dry-run: would add to SKU_TO_SIZE]")
+
+    # ── 7. Update 404.html ────────────────────────────────────────────────────
+    click.echo(f"\n  ✦  Updating 404.html")
+    if not dry_run:
+        added = update_404(slug, title)
+        status = "added" if added else "already present — skipped"
+        click.echo(f"     {status}")
+        if added:
+            report["actions"].append("404-html")
+    else:
+        click.echo("     [dry-run: would add to random-prints list]")
+
+    # ── 8. Report ─────────────────────────────────────────────────────────────
     _print_report(report, slug, dry_run)
 
 
@@ -154,7 +176,5 @@ def _print_report(report: dict, slug: str, dry_run: bool) -> None:
             click.echo(f"    ✓  {action}")
         click.echo(f"\n  Next steps:")
         click.echo(f"    1. Review prints/{slug}/index.html")
-        click.echo(f"    2. Add '{report['sku']}' to SKU_TO_SIZE in js/cart.js")
-        click.echo(f"    3. Add '{report['sku']}' to the 404 page print list")
-        click.echo(f"    4. git add + commit + push to publish")
+        click.echo(f"    2. git add + commit + push to publish")
     click.echo(f"{'─'*50}\n")
