@@ -11,7 +11,7 @@ body {
   padding: 0;
 }
 .wrapper {
-  max-width: 620px;
+  max-width: 600px;
   margin: 0 auto;
   padding: 32px 24px;
 }
@@ -37,7 +37,7 @@ body {
 
 /* ── Story starter cards ─────────────────────────────────────────────── */
 .card {
-  margin-bottom: 32px;
+  margin-bottom: 28px;
   border-radius: 8px;
   overflow: hidden;
   border: 1px solid #252525;
@@ -63,56 +63,30 @@ body {
 }
 .card-lens {
   background: #111;
-  padding: 7px 16px;
+  padding: 6px 16px;
   font-family: system-ui, sans-serif;
   font-size: 0.72rem;
   color: #555;
   font-style: italic;
   border-bottom: 1px solid #1e1e1e;
 }
-
-/* ── Three-part story body ───────────────────────────────────────────── */
 .card-body {
   background: #161616;
+  padding: 22px 22px 20px;
 }
-.story-row {
-  display: flex;
-  padding: 16px 20px;
-  border-bottom: 1px solid #1e1e1e;
-  gap: 14px;
-}
-.story-row:last-child {
-  border-bottom: none;
-}
-.story-label {
-  font-family: system-ui, sans-serif;
-  font-size: 0.62rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: #555;
-  min-width: 80px;
-  padding-top: 3px;
-  flex-shrink: 0;
-}
-.story-text {
-  font-size: 1.0rem;
-  line-height: 1.7;
+.card-prompt {
+  font-size: 1.08rem;
+  line-height: 1.75;
   color: #ddd;
+  margin-bottom: 18px;
 }
-
-/* Conflict gets special weight */
-.story-row.conflict {
-  background: #121212;
-  padding-top: 18px;
-  padding-bottom: 20px;
-}
-.story-row.conflict .story-label {
-  color: #664422;
-}
-.story-row.conflict .story-text {
-  color: #e8d8c8;
-  font-size: 1.05rem;
+.card-opening {
+  font-size: 0.97rem;
+  line-height: 1.7;
+  color: #a89880;
+  font-style: italic;
+  border-top: 1px solid #222;
+  padding-top: 16px;
 }
 
 /* ── Footer ──────────────────────────────────────────────────────────── */
@@ -143,10 +117,13 @@ def _starter_card(key: str, card: dict, genre: dict, voice: str | None, influenc
         if influence else ""
     )
 
-    protagonist = card.get("protagonist", "")
-    antagonist = card.get("antagonist", "")
-    setting = card.get("setting", "")
-    conflict = card.get("conflict", "")
+    prompt_text = card.get("prompt", "")
+    opening_text = card.get("opening", "")
+
+    opening_html = (
+        f'<div class="card-opening">&ldquo;{opening_text}&rdquo;</div>'
+        if opening_text else ""
+    )
 
     return f"""
   <div class="card">
@@ -157,22 +134,8 @@ def _starter_card(key: str, card: dict, genre: dict, voice: str | None, influenc
     </div>
     {lens_row}
     <div class="card-body">
-      <div class="story-row">
-        <div class="story-label">Protagonist</div>
-        <div class="story-text">{protagonist}</div>
-      </div>
-      <div class="story-row">
-        <div class="story-label">Antagonist</div>
-        <div class="story-text">{antagonist}</div>
-      </div>
-      <div class="story-row">
-        <div class="story-label">Setting</div>
-        <div class="story-text">{setting}</div>
-      </div>
-      <div class="story-row conflict">
-        <div class="story-label">Conflict</div>
-        <div class="story-text">{conflict}</div>
-      </div>
+      <div class="card-prompt">{prompt_text}</div>
+      {opening_html}
     </div>
   </div>"""
 

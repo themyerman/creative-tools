@@ -49,16 +49,12 @@ SAMPLE_CONFIG = {
 
 SAMPLE_CARDS = {
     "sf": {
-        "protagonist": "Commander Yara Nkosi needs to reach the colony before the signal dies.",
-        "antagonist":  "Admiral Crane wants to erase the colony's existence from every record.",
-        "setting":     "A decaying orbital station above a planet no government will acknowledge.",
-        "conflict":    "Only one of them can control what the colony knows — and neither can afford the other to survive.",
+        "prompt":  "The colony ship's navigator discovers the star charts were falsified — every jump has been taking them further from home.",
+        "opening": "She pulled the chip from the nav console and held it to the light, turning it slow, the way you turn a lie.",
     },
     "fantasy": {
-        "protagonist": "The hedge-witch Dael wants to unmake the treaty that erased her village.",
-        "antagonist":  "The treaty-keeper Sorn wants the old order preserved at any cost.",
-        "setting":     "A borderland where two dying empires share a river neither can cross.",
-        "conflict":    "The treaty is the only thing keeping the war cold — and Dael's village is the price of peace.",
+        "prompt":  "The executioner's blade has broken on three necks this week, and the condemned keep walking away confused.",
+        "opening": '"I don\'t understand," said the third one, touching his own throat. "I felt it."',
     },
 }
 
@@ -165,20 +161,18 @@ def test_render_email_contains_genre_labels():
     assert "Fantasy" in html
 
 
-def test_render_email_shows_story_sections():
+def test_render_email_shows_prompt_text():
     genres = _build_genres(SAMPLE_CONFIG)
     html = render_email(SAMPLE_CARDS, genres)
-    assert "Protagonist" in html
-    assert "Antagonist" in html
-    assert "Setting" in html
-    assert "Conflict" in html
+    assert "navigator" in html
+    assert "executioner" in html
 
 
-def test_render_email_shows_card_content():
+def test_render_email_shows_opening_line():
     genres = _build_genres(SAMPLE_CONFIG)
     html = render_email(SAMPLE_CARDS, genres)
-    assert "Yara Nkosi" in html
-    assert "hedge-witch" in html
+    assert "nav console" in html
+    assert "touching his own throat" in html
 
 
 def test_render_email_shows_voice():
@@ -196,10 +190,12 @@ def test_render_email_shows_influence():
     assert "Pratchett" in html
 
 
-def test_render_email_no_mashup_remnants():
+def test_render_email_no_old_structure():
     genres = _build_genres(SAMPLE_CONFIG)
     html = render_email(SAMPLE_CARDS, genres)
-    assert "wildcard" not in html
+    assert "Protagonist" not in html
+    assert "Antagonist" not in html
+    assert "Conflict" not in html
     assert "Mashup" not in html
 
 
@@ -215,9 +211,8 @@ def test_generate_starters_returns_cards():
             {"sf": "Le Guin", "fantasy": "Pratchett"},
         )
     assert "sf" in result
-    assert "Yara Nkosi" in result["sf"]["protagonist"]
-    assert "conflict" in result["sf"]
-    assert "setting" in result["sf"]
+    assert "navigator" in result["sf"]["prompt"]
+    assert "opening" in result["sf"]
 
 
 def test_generate_starters_handles_error():
@@ -231,21 +226,24 @@ def test_generate_starters_handles_error():
 
 # ── CLI tests ─────────────────────────────────────────────────────────────────
 
-def test_cli_default_generates_three_cards():
+def _three_card_response():
     all_genres = list(SAMPLE_CONFIG["genres"].keys())
     selected = all_genres[:3]
-    response = {k: SAMPLE_CARDS.get(k, {
-        "protagonist": f"Hero of {k}.",
-        "antagonist":  f"Villain of {k}.",
-        "setting":     f"A place in {k}.",
-        "conflict":    f"Stakes in {k}.",
+    return selected, {k: SAMPLE_CARDS.get(k, {
+        "prompt":  f"Something is wrong in the world of {k}.",
+        "opening": f"Nobody said a word.",
     }) for k in selected}
+
+
+def test_cli_default_generates_cards():
+    selected, response = _three_card_response()
+    all_genres = list(SAMPLE_CONFIG["genres"].keys())
     with patch("writingtools.spark._github_client", return_value=_mock_client(response)), \
          patch("writingtools.spark._load_config", return_value=SAMPLE_CONFIG), \
          patch("writingtools.spark.random.sample", side_effect=lambda pop, n: (selected if set(pop) == set(all_genres) else list(pop)[:n])):
         result = CliRunner().invoke(cli, [])
     assert result.exit_code == 0, result.output
-    assert "Protagonist" in result.output
+    assert "navigator" in result.output or "Something is wrong" in result.output
 
 
 def test_cli_single_genre_mode():
@@ -253,7 +251,7 @@ def test_cli_single_genre_mode():
          patch("writingtools.spark._load_config", return_value=SAMPLE_CONFIG):
         result = CliRunner().invoke(cli, ["--genre", "sf"])
     assert result.exit_code == 0, result.output
-    assert "Yara Nkosi" in result.output
+    assert "navigator" in result.output
 
 
 def test_cli_unknown_genre_exits():
@@ -263,18 +261,11 @@ def test_cli_unknown_genre_exits():
 
 
 def test_cli_print_html():
-    response = {
-        "sf": SAMPLE_CARDS["sf"],
-        "fantasy": SAMPLE_CARDS["fantasy"],
-        "western": {
-            "protagonist": "A surveyor named Cole.",
-            "antagonist":  "A cattleman named Rudd.",
-            "setting":     "A sun-baked border town.",
-            "conflict":    "Every line drawn is a death warrant.",
-        },
-    }
+    selected, response = _three_card_response()
+    all_genres = list(SAMPLE_CONFIG["genres"].keys())
     with patch("writingtools.spark._github_client", return_value=_mock_client(response)), \
-         patch("writingtools.spark._load_config", return_value=SAMPLE_CONFIG):
+         patch("writingtools.spark._load_config", return_value=SAMPLE_CONFIG), \
+         patch("writingtools.spark.random.sample", side_effect=lambda pop, n: (selected if set(pop) == set(all_genres) else list(pop)[:n])):
         result = CliRunner().invoke(cli, ["--print-html"])
     assert result.exit_code == 0, result.output
     assert "<!DOCTYPE html>" in result.output
@@ -293,14 +284,8 @@ def test_cli_custom_config_file(tmp_path):
     import yaml
     cfg_file = tmp_path / "custom.yaml"
     cfg_file.write_text(yaml.dump(SAMPLE_CONFIG), encoding="utf-8")
+    selected, response = _three_card_response()
     all_genres = list(SAMPLE_CONFIG["genres"].keys())
-    selected = all_genres[:3]
-    response = {k: SAMPLE_CARDS.get(k, {
-        "protagonist": f"Hero of {k}.",
-        "antagonist":  f"Villain of {k}.",
-        "setting":     f"A place in {k}.",
-        "conflict":    f"Stakes in {k}.",
-    }) for k in selected}
     with patch("writingtools.spark._github_client", return_value=_mock_client(response)), \
          patch("writingtools.spark.random.sample", side_effect=lambda pop, n: (selected if set(pop) == set(all_genres) else list(pop)[:n])):
         result = CliRunner().invoke(cli, ["--config", str(cfg_file)])

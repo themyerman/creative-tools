@@ -152,10 +152,8 @@ def cli(config_path, email, count, genre, model, print_html, output):
         g = all_genres[key]
         click.echo(f"  {g['icon']}  {g['label']}  [{voice_map[key]}]")
         click.echo(f"  via {influence_map[key]}")
-        click.echo(f"  Protagonist:  {card['protagonist']}")
-        click.echo(f"  Antagonist:   {card['antagonist']}")
-        click.echo(f"  Setting:      {card['setting']}")
-        click.echo(f"  Conflict:     {card['conflict']}")
+        click.echo(f"  {card['prompt']}")
+        click.echo(f"  \"{card['opening']}\"")
         click.echo("")
 
     if email:
@@ -189,30 +187,36 @@ def _generate_starters(
 
     profile_block = _profile_block(writer_profile)
 
+    opening_styles = ["dialogue", "action", "description", "interior thought", "in medias res"]
+    random.shuffle(opening_styles)
+    style_map = {k: opening_styles[i % len(opening_styles)] for i, k in enumerate(keys)}
+
     response_shape = (
         "{\n"
         + ",\n".join(
-            f'  "{k}": {{"protagonist": "one sentence", "antagonist": "one sentence", "setting": "one sentence", "conflict": "one or two sentences"}}'
+            f'  "{k}": {{"prompt": "one or two sentences", "opening": "one sentence"}}'
             for k in keys
         )
         + "\n}"
     )
 
+    style_instructions = "\n".join(
+        f'- "{k}": opening line style — {style_map[k]}' for k in keys
+    )
+
     prompt = (
-        "You are a story development tool. For each genre entry, generate a story starter "
-        "with four elements:\n\n"
-        "- protagonist: who they are and what they desperately want (one sentence, specific)\n"
-        "- antagonist: who or what opposes them and what THEY want — make this a genuine "
-        "counter-force, not just an obstacle (one sentence, specific)\n"
-        "- setting: the specific place and moment — make it atmospheric and load-bearing, "
-        "not just backdrop (one sentence)\n"
-        "- conflict: the central collision between them — what's actually at stake, "
-        "what neither can have while the other exists (one or two sentences)\n\n"
-        "The conflict is the engine. Make it irreconcilable.\n"
-        "The setting should feel inhabited, not generic — a detail that makes the conflict inevitable.\n"
-        "Apply the voice style to shape the language and tone of all four elements.\n"
-        "Let the influence lens shape the world, the moral texture, and the character dynamics.\n"
-        "Be specific — names, details, situations. No generic archetypes."
+        "You are a story development tool. For each genre entry, generate two things:\n\n"
+        "- prompt: a vivid story situation — specific people, a charged moment, something "
+        "that has just happened or is about to. Atmospheric, load-bearing detail. "
+        "One or two sentences. No generic setups.\n"
+        "- opening: the actual first line of the story — the words on page one. "
+        "Use the style specified per entry. One sentence, punchy, specific. "
+        "It should make the reader lean forward.\n\n"
+        "Opening line styles per entry:\n"
+        f"{style_instructions}\n\n"
+        "Apply the voice style to shape the language and tone of both elements.\n"
+        "Let the influence lens shape the world, the moral texture, and the atmosphere.\n"
+        "Be specific — names, places, sensory detail. No generic archetypes."
         f"{profile_block}\n\n"
         "Entries:\n" + "\n".join(entries) + "\n\n"
         "Respond with JSON only — no explanation, no markdown:\n"
