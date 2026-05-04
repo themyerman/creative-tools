@@ -32,6 +32,7 @@ SAMPLE_VOICES = {
     "trailer": "In a world where... everything is at stake.",
     "campfire": "Slow, oral, present tense.",
     "pulp": "Lurid, punchy, the city is dangerous.",
+    "satiric": "Wit as a weapon, the absurd used to expose the serious.",
 }
 
 SAMPLE_CONFIG = {

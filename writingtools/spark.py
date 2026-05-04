@@ -44,7 +44,7 @@ def _build_genres(config: dict) -> dict:
 def _assign_voices(genres: dict, voice: str, voices: dict) -> dict[str, str]:
     """Return {genre_key: voice_instruction}. 'random' assigns each voice at most once per run."""
     if voice == "random":
-        voice_names = list(voices.keys())
+        voice_names = [k for k in voices.keys() if k != "neutral"]
         if len(genres) <= len(voice_names):
             chosen = random.sample(voice_names, len(genres))
         else:
