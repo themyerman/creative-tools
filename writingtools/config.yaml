@@ -7,6 +7,8 @@ writer_profile:
     - Albert Camus (absurdism, the stranger in the world, defiance as the only honest response)
     - Geoffrey Chaucer (human comedy, the pilgrimage as frame, every voice distinct and flawed)
     - William Goldman (nobody knows anything — wit, structure, the hero who almost doesn't make it)
+    - John Scalzi (wit and heart, accessible SF with genuine stakes, humor as a delivery mechanism for truth)
+    - Donald Westlake (the caper, the plan that falls apart, comic crime with a conscience)
     - Voltaire (wit, moral clarity, the absurd used as a blade)
     - Kurt Vonnegut (dark humor, humanity under pressure, structural playfulness)
     - Dante (moral architecture, the descent, consequence as landscape)
@@ -137,6 +139,7 @@ genres:
       with consequences.
     influences:
       - Ursula K. Le Guin (anthropological depth, quiet moral weight)
+      - John Scalzi (wit and heart, humor as delivery mechanism for genuine stakes)
       - Brian Daley (pulpy space opera energy)
       - Joe Haldeman (war, trauma, the long cost)
       - Iain M. Banks (post-scarcity complexity, dark wit)
@@ -149,6 +152,7 @@ genres:
       - E.T. (wonder, loneliness, the alien as mirror)
       - Back to the Future (consequence, comedy, heart)
       - Time Bandits (surreal, dark, history as playground)
+      - Galaxy Quest (the crew who become the heroes, fandom as genuine courage, never give up never surrender)
 
   fantasy:
     label: Fantasy
