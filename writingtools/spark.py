@@ -104,11 +104,13 @@ def _assign_voices(genres: dict, voice: str, voices: dict) -> dict[str, str]:
                    "or 'random' (default)")
 @click.option("--wildcard/--no-wildcard", default=True,
               help="Generate a genre-mashup wild card prompt at the top (default: on)")
+@click.option("--count", default=7, show_default=True,
+              help="Number of genres to sample per run (ignored if --genre is set)")
 @click.option("--print-html", is_flag=True, default=False,
               help="Print the rendered HTML to stdout instead of sending")
 @click.option("--output", "-o", type=click.Path(), default=None,
               help="Write HTML to a file (e.g. docs/index.html)")
-def cli(config_path, email, genre, model, voice, wildcard, print_html, output):
+def cli(config_path, email, genre, model, voice, wildcard, count, print_html, output):
     """Generate daily writing sparks — one prompt per genre — via GitHub Models.
 
     Requires GITHUB_TOKEN in the environment. To email, also requires
@@ -136,7 +138,9 @@ def cli(config_path, email, genre, model, voice, wildcard, print_html, output):
         genres = {genre: all_genres[genre]}
         wildcard = False
     else:
-        genres = all_genres
+        n = min(count, len(all_genres))
+        sampled_keys = random.sample(list(all_genres.keys()), n)
+        genres = {k: all_genres[k] for k in sampled_keys}
 
     voice_map = _assign_voices(genres, voice, voices)
     voice_name_map = {v: n for n, v in voices.items()}
@@ -252,7 +256,7 @@ def _generate_prompts(
             model=model,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.9,
-            max_tokens=900,
+            max_tokens=2500,
         )
         raw = response.choices[0].message.content.strip()
         if raw.startswith("```"):
