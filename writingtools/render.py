@@ -11,7 +11,7 @@ body {
   padding: 0;
 }
 .wrapper {
-  max-width: 600px;
+  max-width: 620px;
   margin: 0 auto;
   padding: 32px 24px;
 }
@@ -35,68 +35,12 @@ body {
   font-family: system-ui, sans-serif;
 }
 
-/* ── Wild Card ───────────────────────────────────────────────────────── */
-.wildcard {
+/* ── Story starter cards ─────────────────────────────────────────────── */
+.card {
   margin-bottom: 32px;
   border-radius: 8px;
   overflow: hidden;
-  border: 1px solid #3a2a5a;
-  box-shadow: 0 0 32px rgba(120, 60, 220, 0.15);
-}
-.wildcard-banner {
-  background: linear-gradient(135deg, #1a0a3a 0%, #0a1a3a 100%);
-  padding: 8px 16px;
-  font-family: system-ui, sans-serif;
-  font-size: 0.65rem;
-  font-weight: 800;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: #9966ff;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.wildcard-banner .wc-spacer { flex: 1; }
-.wildcard-banner .wc-voice {
-  font-weight: 400;
-  letter-spacing: 0.05em;
-  text-transform: none;
-  color: #6644aa;
-}
-.wildcard-header {
-  background: linear-gradient(135deg, #120820 0%, #080f1a 100%);
-  padding: 16px 20px 14px;
-  border-top: 1px solid #2a1a4a;
-  border-bottom: 1px solid #1a1a2a;
-}
-.wildcard-genres {
-  font-family: system-ui, sans-serif;
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: #ccaaff;
-  letter-spacing: 0.02em;
-  margin-bottom: 6px;
-}
-.wildcard-influence {
-  font-family: system-ui, sans-serif;
-  font-size: 0.75rem;
-  color: #6644aa;
-  font-style: italic;
-}
-.wildcard-body {
-  background: #0d0818;
-  padding: 22px 20px 24px;
-  font-size: 1.15rem;
-  line-height: 1.8;
-  color: #ddd8ff;
-}
-
-/* ── Genre cards ─────────────────────────────────────────────────────── */
-.card {
-  margin-bottom: 24px;
-  border-radius: 6px;
-  overflow: hidden;
-  border: 1px solid #222;
+  border: 1px solid #252525;
 }
 .card-header {
   display: flex;
@@ -110,12 +54,65 @@ body {
   text-transform: uppercase;
   color: #ccc;
 }
+.card-header .voice-badge {
+  margin-left: auto;
+  font-weight: 400;
+  opacity: 0.55;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.card-lens {
+  background: #111;
+  padding: 7px 16px;
+  font-family: system-ui, sans-serif;
+  font-size: 0.72rem;
+  color: #555;
+  font-style: italic;
+  border-bottom: 1px solid #1e1e1e;
+}
+
+/* ── Three-part story body ───────────────────────────────────────────── */
 .card-body {
   background: #161616;
-  padding: 20px 20px 22px;
-  font-size: 1.05rem;
-  line-height: 1.75;
+}
+.story-row {
+  display: flex;
+  padding: 16px 20px;
+  border-bottom: 1px solid #1e1e1e;
+  gap: 14px;
+}
+.story-row:last-child {
+  border-bottom: none;
+}
+.story-label {
+  font-family: system-ui, sans-serif;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #555;
+  min-width: 80px;
+  padding-top: 3px;
+  flex-shrink: 0;
+}
+.story-text {
+  font-size: 1.0rem;
+  line-height: 1.7;
   color: #ddd;
+}
+
+/* Conflict gets special weight */
+.story-row.conflict {
+  background: #121212;
+  padding-top: 18px;
+  padding-bottom: 20px;
+}
+.story-row.conflict .story-label {
+  color: #664422;
+}
+.story-row.conflict .story-text {
+  color: #e8d8c8;
+  font-size: 1.05rem;
 }
 
 /* ── Footer ──────────────────────────────────────────────────────────── */
@@ -132,63 +129,72 @@ body {
 """
 
 
-def _mashup_card(meta: dict, prompt: str) -> str:
-    icons = " ".join(meta["genre_icons"])
-    labels = " &times; ".join(meta["genre_labels"])
-    return f"""
-  <div class="wildcard">
-    <div class="wildcard-banner">
-      <span>⚡ Mashup</span>
-      <span class="wc-spacer"></span>
-      <span class="wc-voice">{meta["voice_name"]}</span>
-    </div>
-    <div class="wildcard-header">
-      <div class="wildcard-genres">{icons} &nbsp;{labels}</div>
-      <div class="wildcard-influence">via {meta["influence"]}</div>
-    </div>
-    <div class="wildcard-body">{prompt}</div>
-  </div>"""
+def _starter_card(key: str, card: dict, genre: dict, voice: str | None, influence: str | None) -> str:
+    icon = genre.get("icon", "✦")
+    label = genre.get("label", key.title())
+    color = genre.get("color", "#1a1a1a")
 
-
-def render_email(
-    prompts: dict[str, str],
-    genres: dict,
-    voice_names: dict | None = None,
-    mashup_metas: list | None = None,
-    mashup_prompts: list | None = None,
-) -> str:
-    today = date.today().strftime("%A, %B %-d, %Y")
-
-    mashups_html = "\n".join(
-        _mashup_card(meta, prompt)
-        for meta, prompt in zip(mashup_metas or [], mashup_prompts or [])
-        if prompt
+    voice_badge = (
+        f'<span class="voice-badge">{voice}</span>'
+        if voice else ""
+    )
+    lens_row = (
+        f'<div class="card-lens">via {influence}</div>'
+        if influence else ""
     )
 
-    cards = []
+    protagonist = card.get("protagonist", "")
+    antagonist = card.get("antagonist", "")
+    setting = card.get("setting", "")
+    conflict = card.get("conflict", "")
 
-    for key, text in prompts.items():
-        g = genres.get(key, {})
-        icon = g.get("icon", "✦")
-        label = g.get("label", key.title())
-        color = g.get("color", "#1a1a1a")
-        vname = (voice_names or {}).get(key)
-        voice_badge = (
-            f'<span style="margin-left: auto; font-weight: 400; opacity: 0.6; '
-            f'text-transform: none; letter-spacing: 0;">{vname}</span>'
-            if vname else ""
-        )
-        cards.append(f"""
+    return f"""
   <div class="card">
     <div class="card-header" style="background: {color};">
       <span>{icon}</span>
       <span>{label}</span>
       {voice_badge}
     </div>
-    <div class="card-body">{text}</div>
-  </div>""")
+    {lens_row}
+    <div class="card-body">
+      <div class="story-row">
+        <div class="story-label">Protagonist</div>
+        <div class="story-text">{protagonist}</div>
+      </div>
+      <div class="story-row">
+        <div class="story-label">Antagonist</div>
+        <div class="story-text">{antagonist}</div>
+      </div>
+      <div class="story-row">
+        <div class="story-label">Setting</div>
+        <div class="story-text">{setting}</div>
+      </div>
+      <div class="story-row conflict">
+        <div class="story-label">Conflict</div>
+        <div class="story-text">{conflict}</div>
+      </div>
+    </div>
+  </div>"""
 
-    cards_html = "\n".join(cards)
+
+def render_email(
+    cards: dict[str, dict],
+    genres: dict,
+    voice_map: dict | None = None,
+    influence_map: dict | None = None,
+) -> str:
+    today = date.today().strftime("%A, %B %-d, %Y")
+
+    cards_html = "\n".join(
+        _starter_card(
+            key,
+            card,
+            genres.get(key, {}),
+            (voice_map or {}).get(key),
+            (influence_map or {}).get(key),
+        )
+        for key, card in cards.items()
+    )
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -204,7 +210,6 @@ def render_email(
       <h1>✦ Daily Writing Spark</h1>
       <div class="date">{today}</div>
     </div>
-    {mashups_html}
     {cards_html}
     <div class="footer">
       Generated by creative-tools &middot; GitHub Models &middot; {today}
