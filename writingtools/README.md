@@ -1,6 +1,8 @@
 # daily-spark
 
-Generates a daily writing prompt for each genre you care about, delivered via GitHub Pages or your terminal. Powered by GitHub Models (free with a GitHub account). Fully configurable — swap in your own genres, authors, and voice styles.
+Generates daily writing prompts via GitHub Models (free with a GitHub account). The default experience is three **mashup prompts** — each one collides two random genres through a randomly chosen voice style and a single author or film influence as the creative lens.
+
+Fully configurable: swap in your own genres, influences, and voice styles via a YAML file.
 
 ---
 
@@ -15,7 +17,7 @@ export GITHUB_TOKEN=your_token_here
 daily-spark
 ```
 
-Each run generates one prompt per genre, each in a randomly chosen voice style. Output goes to your terminal. Add `--output docs/index.html` to write a webpage instead.
+Each run produces 3 mashup prompts by default. Each mashup picks two genres, one voice, and one influence at random — independently, so every card is a different collision.
 
 ---
 
@@ -29,42 +31,36 @@ Each run generates one prompt per genre, each in a randomly chosen voice style. 
 
 ## Configuration
 
-Everything — genres, author influences, voice styles — lives in a single YAML file. Copy the bundled `config.yaml` and edit it to match your own tastes:
+Everything — genres, influences, voice styles — lives in a single YAML file. Copy the bundled `config.yaml` and point the tool at it:
 
 ```bash
 cp $(python -c "import writingtools; import pathlib; print(pathlib.Path(writingtools.__file__).parent / 'config.yaml')") ~/my-spark.yaml
-```
 
-Then point the tool at it:
-
-```bash
 daily-spark --config ~/my-spark.yaml
 
-# Or set it permanently in your shell profile:
+# Or set permanently:
 export SPARK_CONFIG=~/my-spark.yaml
 ```
 
 ### Genres
 
-Add, remove, or rename genres freely. Each genre has:
+Add, remove, or rename genres freely. The tool discovers them dynamically.
 
 ```yaml
 genres:
   sf:
-    label: Science Fiction      # display name
-    icon: "🚀"                  # shown in terminal and HTML
-    color: "#1a3a5c"            # card header color in HTML
-    preferences: >              # what kind of stories you want
-      Space opera, alternate histories...
-    influences:                 # literary authors and what to draw from them
+    label: Science Fiction
+    icon: "🚀"
+    color: "#1a3a5c"
+    preferences: >
+      Space opera, alternate histories, dystopias...
+    influences:
       - Ursula K. Le Guin (anthropological depth, quiet moral weight)
       - Brian Daley (pulpy space opera energy)
-    screen_influences:          # films and TV shows
+    screen_influences:
       - Firefly (found family on the margins, lived-in future)
-      - The X-Files (paranoia, the unknown just out of reach)
+      - Battlestar Galactica reboot (moral collapse under pressure)
 ```
-
-The tool discovers genres dynamically — add a `horror:` block and it appears automatically.
 
 ### Writer profile
 
@@ -74,23 +70,23 @@ Cross-genre influences that inflect every prompt:
 writer_profile:
   influences:
     - Albert Camus (absurdism, defiance as the only honest response)
-    - Geoffrey Chaucer (human comedy, every voice distinct and flawed)
     - Kurt Vonnegut (dark humor, humanity under pressure)
+    - Viking Sagas (terse prose, fate, honour-debt)
 ```
 
 ### Voice styles
 
-Twenty-two built-in voices control how prompts are written. Edit or add your own:
+Twenty-two built-in voices. Edit or add your own:
 
 ```yaml
 voices:
   campfire: >
     Write in the style of an oral storytelling tradition...
-  trailer: >
-    "In a world where..." energy. Portentous pauses...
+  tarantino: >
+    Nonlinear energy, pop culture mid-scene, dialogue as tension...
 ```
 
-`--voice random` (the default) assigns a different voice to each genre per run.
+The mashup engine picks one voice per card at random from the full pool.
 
 ---
 
@@ -101,37 +97,45 @@ daily-spark [OPTIONS]
 
 Options:
   --config FILE        Path to your YAML config (or set SPARK_CONFIG env var)
-  --genre TEXT         Generate one genre only (e.g. --genre sf)
-  --voice TEXT         Voice style: vanilla, trailer, bestseller, xfiles, trashy,
-                       campfire, kenburns, pulp, academic, satiric, telegram, gothic,
-                       broadsheet, bard, goldman, tarantino, beat, dispatch,
-                       southern_gothic, magic_realism, fairy_tale, manifesto,
+  --mashups INTEGER    Number of mashup prompts to generate (default: 3)
+  --genres INTEGER     Add this many single-genre prompts after the mashups (default: 0)
+  --genre TEXT         Generate one specific genre only (no mashups)
+  --voice TEXT         Voice for single-genre prompts: vanilla, trailer, bestseller,
+                       xfiles, trashy, campfire, kenburns, pulp, academic, satiric,
+                       telegram, gothic, broadsheet, bard, goldman, tarantino, beat,
+                       dispatch, southern_gothic, magic_realism, fairy_tale, manifesto,
                        or 'random' (default)
-  --no-beats           Skip plot beats (generated by default)
   --model TEXT         GitHub Models model ID (default: gpt-4o-mini)
   --output FILE        Write HTML to a file instead of terminal
   --print-html         Print rendered HTML to stdout
   --email              Send via SMTP (requires EMAIL_* env vars)
 ```
 
+### Examples
+
+```bash
+daily-spark                          # 3 mashups
+daily-spark --mashups 5              # 5 mashups
+daily-spark --mashups 3 --genres 3   # 3 mashups + 3 single-genre prompts
+daily-spark --genre sf               # one specific genre, no mashups
+daily-spark --genre sf --voice campfire
+```
+
 ---
 
 ## Publishing to GitHub Pages
 
-The included workflow (`.github/workflows/daily-spark.yml`) runs three times a day and publishes fresh prompts to `docs/index.html` on your main branch.
+The included workflow (`.github/workflows/daily-spark.yml`) runs three times a day and publishes fresh prompts to `docs/index.html`.
 
 **Setup:**
 1. Enable GitHub Pages in your repo settings: **Source → Deploy from branch → main → /docs**
-2. Make sure `GITHUB_TOKEN` permissions include `models: read` (already set in the workflow)
-3. Push — the first run creates `docs/index.html` automatically
+2. Push — the workflow creates `docs/index.html` on first run
 
 Your page will be at `https://yourusername.github.io/your-repo/`.
 
 ---
 
 ## SMTP email delivery (optional)
-
-If you'd rather receive prompts by email instead of a webpage:
 
 ```bash
 daily-spark --email
