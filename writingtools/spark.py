@@ -11,8 +11,6 @@ import yaml
 from .render import render_email
 from .mailer import send
 
-WILDCARD_KEY = "__wildcard__"
-
 
 def _load_config(config_path: str | None) -> dict:
     """Load config from path, SPARK_CONFIG env var, or bundled default."""
@@ -53,8 +51,8 @@ def _collect_all_influences(config: dict) -> list[str]:
     return influences
 
 
-def _build_wildcard(config: dict, genres: dict, voices: dict) -> dict:
-    """Pick two random genres, one voice, one influence and return wildcard metadata."""
+def _build_mashup(config: dict, genres: dict, voices: dict) -> dict:
+    """Pick two random genres, one voice, one influence."""
     genre_keys = random.sample(list(genres.keys()), 2)
     g1, g2 = genres[genre_keys[0]], genres[genre_keys[1]]
     voice_name = random.choice(list(voices.keys()))
@@ -93,36 +91,35 @@ def _assign_voices(genres: dict, voice: str, voices: dict) -> dict[str, str]:
               help="Path to a YAML config file (default: bundled config.yaml)")
 @click.option("--email", is_flag=True, default=False,
               help="Generate prompts and send via email")
+@click.option("--mashups", default=3, show_default=True,
+              help="Number of genre-mashup prompts to generate")
+@click.option("--genres", "genre_count", default=0, show_default=True,
+              help="Number of single-genre prompts to add after the mashups")
 @click.option("--genre", type=str, default=None,
-              help="Generate only one genre (must match a key in config)")
+              help="Generate a single specific genre only (overrides --mashups and --genres)")
 @click.option("--model", default="gpt-4o-mini", show_default=True,
               help="GitHub Models model ID to use")
 @click.option("--voice", default="random", show_default=True,
-              help="Voice style: vanilla, trailer, bestseller, xfiles, trashy, campfire, kenburns, "
-                   "pulp, academic, satiric, telegram, gothic, broadsheet, bard, goldman, tarantino, "
-                   "beat, dispatch, southern_gothic, magic_realism, fairy_tale, manifesto, "
-                   "or 'random' (default)")
-@click.option("--wildcard/--no-wildcard", default=True,
-              help="Generate a genre-mashup wild card prompt at the top (default: on)")
-@click.option("--count", default=7, show_default=True,
-              help="Number of genres to sample per run (ignored if --genre is set)")
+              help="Voice style for single-genre prompts: vanilla, trailer, bestseller, xfiles, "
+                   "trashy, campfire, kenburns, pulp, academic, satiric, telegram, gothic, "
+                   "broadsheet, bard, goldman, tarantino, beat, dispatch, southern_gothic, "
+                   "magic_realism, fairy_tale, manifesto, or 'random' (default)")
 @click.option("--print-html", is_flag=True, default=False,
               help="Print the rendered HTML to stdout instead of sending")
 @click.option("--output", "-o", type=click.Path(), default=None,
               help="Write HTML to a file (e.g. docs/index.html)")
-def cli(config_path, email, genre, model, voice, wildcard, count, print_html, output):
-    """Generate daily writing sparks — one prompt per genre — via GitHub Models.
+def cli(config_path, email, mashups, genre_count, genre, model, voice, print_html, output):
+    """Generate daily writing sparks via GitHub Models.
 
-    Requires GITHUB_TOKEN in the environment. To email, also requires
-    EMAIL_SMTP_HOST, EMAIL_SMTP_USER, EMAIL_SMTP_PASSWORD, EMAIL_FROM, EMAIL_TO.
+    Default: 3 genre-mashup prompts (two genres × one voice × one influence).
+    Add single-genre prompts with --genres N.
 
-    Customize genres and author influences by pointing --config at your own YAML.
-    The bundled config.yaml is the documented starting point.
+    Requires GITHUB_TOKEN in the environment.
 
     Examples:\n
       daily-spark\n
-      daily-spark --voice trailer\n
-      daily-spark --no-wildcard\n
+      daily-spark --mashups 5\n
+      daily-spark --mashups 3 --genres 3\n
       daily-spark --genre sf --voice campfire\n
       daily-spark --config ~/my-spark.yaml
     """
@@ -131,35 +128,51 @@ def cli(config_path, email, genre, model, voice, wildcard, count, print_html, ou
     writer_profile = config.get("writer_profile", {})
     voices = config.get("voices", {})
 
+    # Single-genre mode
     if genre:
         if genre not in all_genres:
             click.echo(f"Unknown genre '{genre}'. Available: {', '.join(all_genres)}", err=True)
             sys.exit(1)
-        genres = {genre: all_genres[genre]}
-        wildcard = False
+        single_genres = {genre: all_genres[genre]}
+        voice_map = _assign_voices(single_genres, voice, voices)
+        voice_name_map = {v: n for n, v in voices.items()}
+        assigned_voice_names = {k: voice_name_map.get(voice_map[k], voice) for k in single_genres}
+        click.echo(f"  Generating 1 prompt via GitHub Models ({model})...\n", err=True)
+        result = _generate_single_genres(single_genres, model, writer_profile, voice_map)
+        prompts = result
+        mashup_metas = []
+        mashup_prompts = []
     else:
-        n = min(count, len(all_genres))
-        sampled_keys = random.sample(list(all_genres.keys()), n)
-        genres = {k: all_genres[k] for k in sampled_keys}
+        # Build mashups
+        mashup_metas = [_build_mashup(config, all_genres, voices) for _ in range(mashups)]
 
-    voice_map = _assign_voices(genres, voice, voices)
-    voice_name_map = {v: n for n, v in voices.items()}
-    assigned_voice_names = {k: voice_name_map.get(voice_map[k], voice) for k in genres}
+        # Build single-genre prompts if requested
+        if genre_count > 0:
+            n = min(genre_count, len(all_genres))
+            sampled_keys = random.sample(list(all_genres.keys()), n)
+            single_genres = {k: all_genres[k] for k in sampled_keys}
+            voice_map = _assign_voices(single_genres, voice, voices)
+            voice_name_map = {v: n for n, v in voices.items()}
+            assigned_voice_names = {k: voice_name_map.get(voice_map[k], voice) for k in single_genres}
+        else:
+            single_genres = {}
+            voice_map = {}
+            assigned_voice_names = {}
 
-    wc_meta = _build_wildcard(config, all_genres, voices) if wildcard else None
+        total = mashups + len(single_genres)
+        click.echo(f"  Generating {total} prompt(s) via GitHub Models ({model})...\n", err=True)
 
-    click.echo(f"  Generating {len(genres)} prompt(s) via GitHub Models ({model})...\n", err=True)
+        mashup_prompts, prompts = _generate_all(
+            mashup_metas, single_genres, model, writer_profile, voice_map
+        )
 
-    result = _generate_prompts(genres, model, writer_profile, voice_map, wildcard=wc_meta)
-
-    prompts = {k: v for k, v in result.items() if k != WILDCARD_KEY}
-    wc_prompt = result.get(WILDCARD_KEY)
-
-    if not prompts:
+    if not mashup_prompts and not prompts:
         click.echo("No prompts generated. Check your GITHUB_TOKEN.", err=True)
         sys.exit(1)
 
-    html = render_email(prompts, genres, assigned_voice_names, wc_meta, wc_prompt)
+    html = render_email(prompts, single_genres if not genre else {genre: all_genres[genre]},
+                        assigned_voice_names if not genre else assigned_voice_names,
+                        mashup_metas, mashup_prompts)
 
     if print_html:
         click.echo(html)
@@ -171,17 +184,17 @@ def cli(config_path, email, genre, model, voice, wildcard, count, print_html, ou
         click.echo(f"  Written to {output}", err=True)
         return
 
-    if wc_meta and wc_prompt:
-        labels = " × ".join(wc_meta["genre_labels"])
-        icons = " ".join(wc_meta["genre_icons"])
-        click.echo(f"  ⚡  WILD CARD  {icons}  {labels}  [{wc_meta['voice_name']}]")
-        click.echo(f"  via: {wc_meta['influence']}")
-        click.echo(f"  {wc_prompt}\n")
+    for meta, prompt in zip(mashup_metas, mashup_prompts):
+        labels = " × ".join(meta["genre_labels"])
+        icons = " ".join(meta["genre_icons"])
+        click.echo(f"  ⚡  {icons}  {labels}  [{meta['voice_name']}]")
+        click.echo(f"  via: {meta['influence']}")
+        click.echo(f"  {prompt}\n")
 
     for key, p in prompts.items():
-        g = genres[key]
+        g = (single_genres if not genre else {genre: all_genres[genre]}).get(key, {})
         vname = assigned_voice_names.get(key, voice)
-        click.echo(f"  {g['icon']}  {g['label']}  [{vname}]")
+        click.echo(f"  {g.get('icon','✦')}  {g.get('label', key)}  [{vname}]")
         click.echo(f"  {p}\n")
 
     if email:
@@ -190,63 +203,54 @@ def cli(config_path, email, genre, model, voice, wildcard, count, print_html, ou
         click.echo("  Done.", err=True)
 
 
-def _generate_prompts(
-    genres: dict,
+def _generate_all(
+    mashup_metas: list[dict],
+    single_genres: dict,
     model: str,
     writer_profile: dict | None = None,
-    voice_map: dict[str, str] | None = None,
-    wildcard: dict | None = None,
-) -> dict[str, str]:
-    """Call GitHub Models and return {genre_key: prompt_text} strings."""
+    voice_map: dict | None = None,
+) -> tuple[list[str], dict[str, str]]:
+    """Generate all mashup and single-genre prompts in one API call."""
     client = _github_client()
 
-    genre_lines = []
-    for key, g in genres.items():
-        voice_instruction = (voice_map or {}).get(key, "")
-        voice_note = f" Voice style: {voice_instruction}" if voice_instruction else ""
-        genre_lines.append(f'- "{key}": {g["label"]} — {g["preferences"]}{voice_note}')
+    entries = []
+    keys = []
 
-    if wildcard:
-        g1_label, g2_label = wildcard["genre_labels"]
-        g1_prefs, g2_prefs = wildcard["genre_prefs"]
-        genre_lines.append(
-            f'- "{WILDCARD_KEY}": WILD CARD — Mash together {g1_label} and {g2_label}. '
-            f'{g1_label} preferences: {g1_prefs} {g2_label} preferences: {g2_prefs} '
-            f'Channel the specific influence of: {wildcard["influence"]}. '
-            f'Voice style: {wildcard["voice_instruction"]} '
-            f'Make this feel genuinely surprising — the two genres should collide, not just coexist.'
+    for i, m in enumerate(mashup_metas):
+        key = f"__mashup_{i}__"
+        keys.append(("mashup", key))
+        g1_label, g2_label = m["genre_labels"]
+        g1_prefs, g2_prefs = m["genre_prefs"]
+        entries.append(
+            f'- "{key}": MASHUP — Collide {g1_label} with {g2_label}. '
+            f'{g1_label} preferences: {g1_prefs} '
+            f'{g2_label} preferences: {g2_prefs} '
+            f'Channel: {m["influence"]}. '
+            f'Voice style: {m["voice_instruction"]} '
+            f'The two genres must genuinely collide — not coexist.'
         )
 
-    genre_list = "\n".join(genre_lines)
+    for key, g in single_genres.items():
+        keys.append(("genre", key))
+        voice_note = f" Voice style: {voice_map.get(key, '')}" if voice_map else ""
+        entries.append(f'- "{key}": {g["label"]} — {g["preferences"]}{voice_note}')
 
-    profile_block = ""
-    if writer_profile:
-        background = writer_profile.get("background", "").strip()
-        influences = writer_profile.get("influences", [])
-        parts = []
-        if background:
-            parts.append(f"Writer background: {background}")
-        if influences:
-            parts.append("Cross-genre literary touchstones: " + "; ".join(influences))
-        if parts:
-            profile_block = "\n\n" + " ".join(parts)
-
-    all_keys = list(genres.keys()) + ([WILDCARD_KEY] if wildcard else [])
+    profile_block = _profile_block(writer_profile)
     response_shape = (
         "{\n"
-        + ",\n".join(f'  "{k}": "prompt text here"' for k in all_keys)
+        + ",\n".join(f'  "{k}": "prompt text here"' for _, k in keys)
         + "\n}"
     )
 
     prompt = (
-        "You are a creative writing spark generator. Your job is to produce specific, "
-        "evocative writing prompts — not themes or topics, but *situations*. "
-        "Each prompt should place a character in a specific moment of tension or discovery "
-        "with a vivid setting detail, leaving open space for the writer to go anywhere. "
-        "2-3 sentences max. No generic advice. No 'write a story about'. Just the spark. "
-        "Apply the voice style instruction for each entry exactly as described."
+        "You are a creative writing spark generator. Produce specific, evocative prompts — "
+        "not themes, but *situations*. A character in a moment of tension or discovery, "
+        "a vivid setting detail, space for the writer to go anywhere. "
+        "2-3 sentences max. Just the spark. "
+        "For MASHUP entries, the two genres must genuinely collide in surprising ways. "
+        "Apply voice style instructions exactly."
         f"{profile_block}\n\n"
-        f"Generate one prompt for each of these entries:\n{genre_list}\n\n"
+        f"Generate one prompt per entry:\n" + "\n".join(entries) + "\n\n"
         "Respond with JSON only — no explanation, no markdown:\n"
         f"{response_shape}"
     )
@@ -261,10 +265,79 @@ def _generate_prompts(
         raw = response.choices[0].message.content.strip()
         if raw.startswith("```"):
             raw = raw.split("```")[1].lstrip("json").strip()
+        data = json.loads(raw)
+        mashup_prompts = [data.get(f"__mashup_{i}__", "") for i in range(len(mashup_metas))]
+        genre_prompts = {k: data.get(k, "") for _, k in keys if _ == "genre"}
+        return mashup_prompts, genre_prompts
+    except Exception as e:
+        click.echo(f"Generation error: {e}", err=True)
+        return [], {}
+
+
+def _generate_single_genres(
+    genres: dict,
+    model: str,
+    writer_profile: dict | None = None,
+    voice_map: dict | None = None,
+) -> dict[str, str]:
+    """Generate single-genre prompts only (used in --genre mode)."""
+    client = _github_client()
+    entries = []
+    for key, g in genres.items():
+        voice_note = f" Voice style: {voice_map.get(key, '')}" if voice_map else ""
+        entries.append(f'- "{key}": {g["label"]} — {g["preferences"]}{voice_note}')
+    profile_block = _profile_block(writer_profile)
+    response_shape = (
+        "{\n"
+        + ",\n".join(f'  "{k}": "prompt text here"' for k in genres)
+        + "\n}"
+    )
+    prompt = (
+        "You are a creative writing spark generator. Produce specific, evocative prompts — "
+        "a character in a moment of tension or discovery, vivid setting, open space for the writer. "
+        "2-3 sentences max. Just the spark. Apply voice style instructions exactly."
+        f"{profile_block}\n\n"
+        f"Generate one prompt per entry:\n" + "\n".join(entries) + "\n\n"
+        "Respond with JSON only — no explanation, no markdown:\n"
+        f"{response_shape}"
+    )
+    try:
+        response = client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.9,
+            max_tokens=600,
+        )
+        raw = response.choices[0].message.content.strip()
+        if raw.startswith("```"):
+            raw = raw.split("```")[1].lstrip("json").strip()
         return json.loads(raw)
     except Exception as e:
         click.echo(f"Generation error: {e}", err=True)
         return {}
+
+
+def _profile_block(writer_profile: dict | None) -> str:
+    if not writer_profile:
+        return ""
+    parts = []
+    background = writer_profile.get("background", "").strip()
+    influences = writer_profile.get("influences", [])
+    if background:
+        parts.append(f"Writer background: {background}")
+    if influences:
+        parts.append("Cross-genre touchstones: " + "; ".join(influences))
+    return ("\n\n" + " ".join(parts)) if parts else ""
+
+
+def _collect_all_influences(config: dict) -> list[str]:
+    """Collect every named influence across writer profile and all genres."""
+    influences = []
+    influences.extend(config.get("writer_profile", {}).get("influences", []))
+    for g in config.get("genres", {}).values():
+        influences.extend(g.get("influences", []))
+        influences.extend(g.get("screen_influences", []))
+    return influences
 
 
 def _github_client():
@@ -272,10 +345,5 @@ def _github_client():
     from openai import OpenAI
     token = os.environ.get("GITHUB_TOKEN")
     if not token:
-        raise RuntimeError(
-            "GITHUB_TOKEN not set. Export it or add it to your environment."
-        )
-    return OpenAI(
-        base_url="https://models.inference.ai.azure.com",
-        api_key=token,
-    )
+        raise RuntimeError("GITHUB_TOKEN not set.")
+    return OpenAI(base_url="https://models.inference.ai.azure.com", api_key=token)
