@@ -15,6 +15,9 @@ dependencies = [
     "ddgs>=0.1",
     "openai>=1.0",
     "pyyaml>=6.0",
+    "opencv-python>=4.8",
+    "numpy>=1.24",
+    "pillow-heif>=0.13",
 ]
 
 [project.scripts]
@@ -25,6 +28,7 @@ patreon-plan = "arttools.patreon_plan:cli"
 mood-board = "arttools.mood_board:cli"
 batch-resize = "arttools.batch_resize:cli"
 color-match = "arttools.color_match:cli"
+photo-scout = "arttools.photo_scout:cli"
 daily-spark = "writingtools.spark:cli"
 
 [tool.setuptools.packages.find]
