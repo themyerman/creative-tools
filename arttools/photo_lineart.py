@@ -279,8 +279,11 @@ def _output_path(src: Path, out: str, style: str, per_image: bool = False) -> Pa
 @click.option(
     "--style", "-s",
     type=click.Choice(["pencil", "ink", "canny", "outline", "xdog"]),
-    default="pencil", show_default=True,
-    help="Line art style.",
+    default=None,
+    help=(
+        "Line art style. If omitted, runs all styles + best-blend into a "
+        "compare/ subfolder (default mode)."
+    ),
 )
 @click.option(
     "--detail", "-d",
@@ -290,7 +293,10 @@ def _output_path(src: Path, out: str, style: str, per_image: bool = False) -> Pa
 )
 @click.option(
     "--output", "-o", default="",
-    help="Output path or directory. Default: same folder as source, with -{style}.png suffix.",
+    help=(
+        "Output path or directory. In default/--all-styles/--best-blend modes, "
+        "defaults to a compare/ subfolder next to the source images."
+    ),
 )
 @click.option(
     "--invert", is_flag=True, default=False,
@@ -304,20 +310,26 @@ def _output_path(src: Path, out: str, style: str, per_image: bool = False) -> Pa
     "--all-styles", is_flag=True, default=False,
     help=(
         "Generate all 6 variants (pencil, pencil-dark, ink, canny, outline, xdog) "
-        "for each source. Each image gets its own subdirectory for easy comparison."
+        "for each source. Each image gets its own subdirectory."
     ),
 )
 @click.option(
     "--best-blend", is_flag=True, default=False,
     help=(
         "Score all 15 pairwise blend combinations and save the top 3 to a "
-        "best-blend/ subfolder. Prints the full ranking so you can see what worked."
+        "best-blend/ subfolder. Prints the full ranking."
     ),
 )
 def cli(sources, style, detail, output, invert, darken, all_styles, best_blend):
     """Convert photographs to line art.
 
-    SOURCES can be one or more image files or directories.
+    DEFAULT MODE (no --style flag): runs all 6 style variants AND best-blend
+    scoring for every image, organized into a compare/ subfolder:\n
+      compare/image1/image1-pencil.png\n
+      compare/image1/image1-ink.png  ... (all 6 variants)\n
+      compare/image1/best-blend/     ... (top 3 blends)\n
+
+    SINGLE STYLE MODE (--style given): produces one output file per image.\n
 
     Styles:\n
       pencil   Soft dodge-blend sketch. Add --darken to push lines darker.\n
@@ -326,22 +338,15 @@ def cli(sources, style, detail, output, invert, darken, all_styles, best_blend):
       outline  Thick clean object boundaries via bilateral filter + Sobel.\n
       xdog     Extended Difference of Gaussians — bold illustration strokes.\n
 
-    With --all-styles, each source image gets its own subdirectory:\n
-      <output>/image1/image1-pencil.png\n
-      <output>/image1/image1-pencil-dark.png\n
-      <output>/image1/image1-ink.png  ... etc\n
-
-    With --best-blend, all 15 pairwise combinations are scored and the top 3\n
-    are saved to <output>/image1/best-blend/. A ranked table is printed.\n
-
     Examples:\n
       photo-lineart photo.jpg\n
+      photo-lineart *.jpg\n
+      photo-lineart photo.jpg --style ink --detail high\n
       photo-lineart photo.jpg --style pencil --darken\n
-      photo-lineart photo.jpg --style outline --detail low\n
-      photo-lineart photo.jpg --all-styles --output ./compare/\n
-      photo-lineart photo.jpg --best-blend --output ./compare/\n
-      photo-lineart *.jpg --output ./lineart/ --style pencil
+      photo-lineart *.jpg --output ./compare/\n
     """
+    import itertools
+
     # Collect all image paths
     paths: list[Path] = []
     for src in sources:
@@ -359,100 +364,72 @@ def cli(sources, style, detail, output, invert, darken, all_styles, best_blend):
         click.echo("No images found.", err=True)
         sys.exit(1)
 
-    if best_blend:
-        import itertools
+    # Default mode: no explicit style → run everything
+    default_mode = style is None and not all_styles and not best_blend
 
+    if default_mode or all_styles or best_blend:
         for path in paths:
             if path.suffix.lower() not in IMAGE_EXTS:
                 continue
-            click.echo(f"\n  {path.name} — scoring all 15 blends...")
-            gray = _load_gray(path)
 
-            # Render all 6 variants once
-            rendered = {
-                label: _render_variant(gray, detail, spec)
-                for spec in VARIANT_SPECS
-                for label in [spec[2]]
-            }
-
-            # Score every pair
-            results: list[tuple[float, float, str, str, np.ndarray]] = []
-            for (la, a), (lb, b) in itertools.combinations(rendered.items(), 2):
-                blended = _blend(a, b)
-                density, score = _score_blend(blended)
-                results.append((score, density, la, lb, blended))
-
-            results.sort(key=lambda r: r[0], reverse=True)
-
-            # Print full ranking
-            click.echo(f"\n  {'#':<3} {'Score':>6}  {'Density':>8}  Combination")
-            click.echo(f"  {'-'*50}")
-            for rank, (score, density, la, lb, _) in enumerate(results, 1):
-                marker = "  ◀ top 3" if rank <= 3 else ""
-                click.echo(f"  {rank:<3} {score:>6.3f}  {density:>7.1%}  {la} + {lb}{marker}")
-
-            # Save top 3
-            base = Path(output) if output else path.parent
-            out_dir = base / path.stem / "best-blend"
-            out_dir.mkdir(parents=True, exist_ok=True)
-
-            click.echo(f"\n  Saving top 3 to {out_dir}/")
-            for rank, (score, density, la, lb, arr) in enumerate(results[:3], 1):
-                if invert:
-                    arr = 255 - arr
-                fname = f"{path.stem}-blend{rank:02d}-{la}+{lb}.png"
-                save(arr, out_dir / fname)
-                click.echo(f"    ✓ {fname}  (score {score:.3f}, density {density:.1%})")
-
-        return
-
-    if all_styles:
-        # Each entry is (style_name, darken_flag, label)
-        variants: list[tuple[str, bool, str]] = [
-            ("pencil",  False, "pencil"),
-            ("pencil",  True,  "pencil-dark"),
-            ("ink",     False, "ink"),
-            ("canny",   False, "canny"),
-            ("outline", False, "outline"),
-            ("xdog",    False, "xdog"),
-        ]
-        total = len(paths) * len(variants)
-        done = 0
-
-        for path in paths:
-            if path.suffix.lower() not in IMAGE_EXTS:
-                continue
+            # Default output root: compare/ next to the source file
+            base = Path(output) if output else path.parent / "compare"
             click.echo(f"\n  {path.name}")
-            # Pre-load grayscale once per image — all variants share it
+
+            # Load grayscale once — shared by all variants and blends
             gray = _load_gray(path)
-            for st, dk, label in variants:
-                try:
-                    if st == "pencil":
-                        arr = _pencil(gray, detail, darken=dk)
-                    elif st == "ink":
-                        arr = _ink(gray, detail)
-                    elif st == "canny":
-                        arr = _canny(gray, detail)
-                    elif st == "outline":
-                        arr = _outline(gray, detail)
-                    else:
-                        arr = _xdog(gray, detail)
+
+            # --- All variants ---
+            if default_mode or all_styles:
+                variant_done = 0
+                for spec in VARIANT_SPECS:
+                    st, dk, label = spec
+                    try:
+                        arr = _render_variant(gray, detail, spec)
+                        if invert:
+                            arr = 255 - arr
+                        out = base / path.stem / f"{path.stem}-{label}.png"
+                        out.parent.mkdir(parents=True, exist_ok=True)
+                        save(arr, out)
+                        variant_done += 1
+                        click.echo(f"    ✓ {out.name}")
+                    except Exception as e:
+                        click.echo(f"    ✗ {label}: {e}", err=True)
+
+            # --- Best-blend ---
+            if default_mode or best_blend:
+                click.echo(f"    — scoring blends...")
+                rendered = {
+                    spec[2]: _render_variant(gray, detail, spec)
+                    for spec in VARIANT_SPECS
+                }
+                results: list[tuple[float, float, str, str, np.ndarray]] = []
+                for (la, a), (lb, b) in itertools.combinations(rendered.items(), 2):
+                    blended = _blend(a, b)
+                    density, score = _score_blend(blended)
+                    results.append((score, density, la, lb, blended))
+                results.sort(key=lambda r: r[0], reverse=True)
+
+                click.echo(f"\n    {'#':<3} {'Score':>6}  {'Density':>8}  Combination")
+                click.echo(f"    {'-'*46}")
+                for rank, (score, density, la, lb, _) in enumerate(results, 1):
+                    marker = "  ◀" if rank <= 3 else ""
+                    click.echo(f"    {rank:<3} {score:>6.3f}  {density:>7.1%}  {la} + {lb}{marker}")
+
+                out_dir = base / path.stem / "best-blend"
+                out_dir.mkdir(parents=True, exist_ok=True)
+                click.echo(f"\n    Saving top 3 → {out_dir}/")
+                for rank, (score, density, la, lb, arr) in enumerate(results[:3], 1):
                     if invert:
                         arr = 255 - arr
-                    # Per-image subdir: <output>/<stem>/<stem>-<label>.png
-                    base = Path(output) if output else path.parent
-                    out = base / path.stem / f"{path.stem}-{label}.png"
-                    out.parent.mkdir(parents=True, exist_ok=True)
-                    save(arr, out)
-                    done += 1
-                    click.echo(f"    ✓ {out.name}")
-                except Exception as e:
-                    click.echo(f"    ✗ {label}: {e}", err=True)
+                    fname = f"{path.stem}-blend{rank:02d}-{la}+{lb}.png"
+                    save(arr, out_dir / fname)
+                    click.echo(f"    ✓ {fname}  ({score:.3f}, {density:.1%})")
 
-        click.echo(f"\n  {done}/{total} variants converted.")
+        click.echo(f"\n  Done. Results in {Path(output) if output else paths[0].parent / 'compare'}/")
 
     else:
-        # Single-style mode — original behaviour
+        # Single-style mode — explicit --style given
         total = len(paths)
         done = 0
         for path in paths:
