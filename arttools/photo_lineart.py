@@ -197,6 +197,58 @@ def save(arr: np.ndarray, out_path: Path) -> None:
     Image.fromarray(arr).save(out_path)
 
 
+# ---------------------------------------------------------------------------
+# Blend helpers
+# ---------------------------------------------------------------------------
+
+# All variant labels in the order we always generate them
+VARIANT_SPECS: list[tuple[str, bool, str]] = [
+    ("pencil",  False, "pencil"),
+    ("pencil",  True,  "pencil-dark"),
+    ("ink",     False, "ink"),
+    ("canny",   False, "canny"),
+    ("outline", False, "outline"),
+    ("xdog",    False, "xdog"),
+]
+
+
+def _render_variant(gray: np.ndarray, detail: str, spec: tuple[str, bool, str]) -> np.ndarray:
+    """Render a single variant from a pre-loaded gray array."""
+    st, dk, _ = spec
+    if st == "pencil":
+        return _pencil(gray, detail, darken=dk)
+    elif st == "ink":
+        return _ink(gray, detail)
+    elif st == "canny":
+        return _canny(gray, detail)
+    elif st == "outline":
+        return _outline(gray, detail)
+    else:
+        return _xdog(gray, detail)
+
+
+def _blend(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+    """Minimum-pixel blend: wherever either image has a dark line, keep it."""
+    return np.minimum(a, b)
+
+
+def _score_blend(arr: np.ndarray) -> tuple[float, float]:
+    """
+    Score a blended image by how useful its line density is.
+
+    Returns (density, score) where:
+      density = fraction of pixels that are lines (value < 200)
+      score   = 0–1, peaks at the target density (~15%), falls off on either side
+
+    Too sparse = missing information. Too dense = noisy mess.
+    """
+    density = float(np.mean(arr < 200))
+    target = 0.15
+    # Score decays as density moves away from target
+    score = 1.0 / (1.0 + 8.0 * abs(density - target))
+    return density, score
+
+
 def _output_path(src: Path, out: str, style: str, per_image: bool = False) -> Path:
     """Resolve output path for a given source file.
 
@@ -255,7 +307,14 @@ def _output_path(src: Path, out: str, style: str, per_image: bool = False) -> Pa
         "for each source. Each image gets its own subdirectory for easy comparison."
     ),
 )
-def cli(sources, style, detail, output, invert, darken, all_styles):
+@click.option(
+    "--best-blend", is_flag=True, default=False,
+    help=(
+        "Score all 15 pairwise blend combinations and save the top 3 to a "
+        "best-blend/ subfolder. Prints the full ranking so you can see what worked."
+    ),
+)
+def cli(sources, style, detail, output, invert, darken, all_styles, best_blend):
     """Convert photographs to line art.
 
     SOURCES can be one or more image files or directories.
@@ -272,11 +331,15 @@ def cli(sources, style, detail, output, invert, darken, all_styles):
       <output>/image1/image1-pencil-dark.png\n
       <output>/image1/image1-ink.png  ... etc\n
 
+    With --best-blend, all 15 pairwise combinations are scored and the top 3\n
+    are saved to <output>/image1/best-blend/. A ranked table is printed.\n
+
     Examples:\n
       photo-lineart photo.jpg\n
       photo-lineart photo.jpg --style pencil --darken\n
       photo-lineart photo.jpg --style outline --detail low\n
       photo-lineart photo.jpg --all-styles --output ./compare/\n
+      photo-lineart photo.jpg --best-blend --output ./compare/\n
       photo-lineart *.jpg --output ./lineart/ --style pencil
     """
     # Collect all image paths
@@ -295,6 +358,53 @@ def cli(sources, style, detail, output, invert, darken, all_styles):
     if not paths:
         click.echo("No images found.", err=True)
         sys.exit(1)
+
+    if best_blend:
+        import itertools
+
+        for path in paths:
+            if path.suffix.lower() not in IMAGE_EXTS:
+                continue
+            click.echo(f"\n  {path.name} — scoring all 15 blends...")
+            gray = _load_gray(path)
+
+            # Render all 6 variants once
+            rendered = {
+                label: _render_variant(gray, detail, spec)
+                for spec in VARIANT_SPECS
+                for label in [spec[2]]
+            }
+
+            # Score every pair
+            results: list[tuple[float, float, str, str, np.ndarray]] = []
+            for (la, a), (lb, b) in itertools.combinations(rendered.items(), 2):
+                blended = _blend(a, b)
+                density, score = _score_blend(blended)
+                results.append((score, density, la, lb, blended))
+
+            results.sort(key=lambda r: r[0], reverse=True)
+
+            # Print full ranking
+            click.echo(f"\n  {'#':<3} {'Score':>6}  {'Density':>8}  Combination")
+            click.echo(f"  {'-'*50}")
+            for rank, (score, density, la, lb, _) in enumerate(results, 1):
+                marker = "  ◀ top 3" if rank <= 3 else ""
+                click.echo(f"  {rank:<3} {score:>6.3f}  {density:>7.1%}  {la} + {lb}{marker}")
+
+            # Save top 3
+            base = Path(output) if output else path.parent
+            out_dir = base / path.stem / "best-blend"
+            out_dir.mkdir(parents=True, exist_ok=True)
+
+            click.echo(f"\n  Saving top 3 to {out_dir}/")
+            for rank, (score, density, la, lb, arr) in enumerate(results[:3], 1):
+                if invert:
+                    arr = 255 - arr
+                fname = f"{path.stem}-blend{rank:02d}-{la}+{lb}.png"
+                save(arr, out_dir / fname)
+                click.echo(f"    ✓ {fname}  (score {score:.3f}, density {density:.1%})")
+
+        return
 
     if all_styles:
         # Each entry is (style_name, darken_flag, label)
