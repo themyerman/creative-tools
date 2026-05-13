@@ -197,14 +197,24 @@ def save(arr: np.ndarray, out_path: Path) -> None:
     Image.fromarray(arr).save(out_path)
 
 
-def _output_path(src: Path, out: str, style: str) -> Path:
-    """Resolve output path for a given source file."""
+def _output_path(src: Path, out: str, style: str, per_image: bool = False) -> Path:
+    """Resolve output path for a given source file.
+
+    per_image=True (used with --all-styles): puts all variants for one source
+    into a subdirectory named after the source stem, e.g.:
+        <out>/<stem>/<stem>-<style>.png
+    """
+    base = Path(out) if out else src.parent
+
+    if per_image:
+        return base / src.stem / f"{src.stem}-{style}.png"
+
+    # Single-style path
     if out:
         p = Path(out)
-        # If --output is a directory, put the file inside it
         if p.is_dir():
             return p / f"{src.stem}-{style}.png"
-        return p
+        return p  # explicit file path
     return src.parent / f"{src.stem}-{style}.png"
 
 
@@ -240,7 +250,10 @@ def _output_path(src: Path, out: str, style: str) -> Path:
 )
 @click.option(
     "--all-styles", is_flag=True, default=False,
-    help="Generate all five style versions for each source.",
+    help=(
+        "Generate all 6 variants (pencil, pencil-dark, ink, canny, outline, xdog) "
+        "for each source. Each image gets its own subdirectory for easy comparison."
+    ),
 )
 def cli(sources, style, detail, output, invert, darken, all_styles):
     """Convert photographs to line art.
@@ -254,12 +267,16 @@ def cli(sources, style, detail, output, invert, darken, all_styles):
       outline  Thick clean object boundaries via bilateral filter + Sobel.\n
       xdog     Extended Difference of Gaussians — bold illustration strokes.\n
 
+    With --all-styles, each source image gets its own subdirectory:\n
+      <output>/image1/image1-pencil.png\n
+      <output>/image1/image1-pencil-dark.png\n
+      <output>/image1/image1-ink.png  ... etc\n
+
     Examples:\n
       photo-lineart photo.jpg\n
       photo-lineart photo.jpg --style pencil --darken\n
       photo-lineart photo.jpg --style outline --detail low\n
-      photo-lineart photo.jpg --style xdog --detail medium\n
-      photo-lineart photo.jpg --all-styles\n
+      photo-lineart photo.jpg --all-styles --output ./compare/\n
       photo-lineart *.jpg --output ./lineart/ --style pencil
     """
     # Collect all image paths
@@ -279,24 +296,67 @@ def cli(sources, style, detail, output, invert, darken, all_styles):
         click.echo("No images found.", err=True)
         sys.exit(1)
 
-    all_style_names = ["pencil", "ink", "canny", "outline", "xdog"]
-    styles = all_style_names if all_styles else [style]
-    total = len(paths) * len(styles)
-    done = 0
+    if all_styles:
+        # Each entry is (style_name, darken_flag, label)
+        variants: list[tuple[str, bool, str]] = [
+            ("pencil",  False, "pencil"),
+            ("pencil",  True,  "pencil-dark"),
+            ("ink",     False, "ink"),
+            ("canny",   False, "canny"),
+            ("outline", False, "outline"),
+            ("xdog",    False, "xdog"),
+        ]
+        total = len(paths) * len(variants)
+        done = 0
 
-    for path in paths:
-        if path.suffix.lower() not in IMAGE_EXTS:
-            continue
-        for st in styles:
+        for path in paths:
+            if path.suffix.lower() not in IMAGE_EXTS:
+                continue
+            click.echo(f"\n  {path.name}")
+            # Pre-load grayscale once per image — all variants share it
+            gray = _load_gray(path)
+            for st, dk, label in variants:
+                try:
+                    if st == "pencil":
+                        arr = _pencil(gray, detail, darken=dk)
+                    elif st == "ink":
+                        arr = _ink(gray, detail)
+                    elif st == "canny":
+                        arr = _canny(gray, detail)
+                    elif st == "outline":
+                        arr = _outline(gray, detail)
+                    else:
+                        arr = _xdog(gray, detail)
+                    if invert:
+                        arr = 255 - arr
+                    # Per-image subdir: <output>/<stem>/<stem>-<label>.png
+                    base = Path(output) if output else path.parent
+                    out = base / path.stem / f"{path.stem}-{label}.png"
+                    out.parent.mkdir(parents=True, exist_ok=True)
+                    save(arr, out)
+                    done += 1
+                    click.echo(f"    ✓ {out.name}")
+                except Exception as e:
+                    click.echo(f"    ✗ {label}: {e}", err=True)
+
+        click.echo(f"\n  {done}/{total} variants converted.")
+
+    else:
+        # Single-style mode — original behaviour
+        total = len(paths)
+        done = 0
+        for path in paths:
+            if path.suffix.lower() not in IMAGE_EXTS:
+                continue
             try:
-                arr = convert(path, style=st, detail=detail, invert=invert, darken=darken)
-                out = _output_path(path, output if not all_styles else "", st)
+                arr = convert(path, style=style, detail=detail, invert=invert, darken=darken)
+                out = _output_path(path, output, style)
                 out.parent.mkdir(parents=True, exist_ok=True)
                 save(arr, out)
                 done += 1
-                extra = " +darken" if darken and st == "pencil" else ""
-                click.echo(f"  ✓ {out.name}  [{st}, {detail}{extra}]")
+                extra = " +darken" if darken and style == "pencil" else ""
+                click.echo(f"  ✓ {out.name}  [{style}, {detail}{extra}]")
             except Exception as e:
                 click.echo(f"  ✗ {path.name}: {e}", err=True)
 
-    click.echo(f"\n  {done}/{total} converted.")
+        click.echo(f"\n  {done}/{total} converted.")
