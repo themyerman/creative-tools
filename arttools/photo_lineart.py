@@ -249,25 +249,53 @@ def _score_blend(arr: np.ndarray) -> tuple[float, float]:
     return density, score
 
 
-def _output_path(src: Path, out: str, style: str, per_image: bool = False) -> Path:
-    """Resolve output path for a given source file.
-
-    per_image=True (used with --all-styles): puts all variants for one source
-    into a subdirectory named after the source stem, e.g.:
-        <out>/<stem>/<stem>-<style>.png
-    """
-    base = Path(out) if out else src.parent
-
-    if per_image:
-        return base / src.stem / f"{src.stem}-{style}.png"
-
-    # Single-style path
+def _output_path(src: Path, out: str, style: str) -> Path:
+    """Resolve output path for single-style mode."""
     if out:
         p = Path(out)
         if p.is_dir():
             return p / f"{src.stem}-{style}.png"
-        return p  # explicit file path
+        return p
     return src.parent / f"{src.stem}-{style}.png"
+
+
+# ---------------------------------------------------------------------------
+# Post-processing: tint and line weight
+# ---------------------------------------------------------------------------
+
+def _apply_weight(arr: np.ndarray, weight: str) -> np.ndarray:
+    """Adjust line thickness. Lines are dark (low values), background is white."""
+    if weight == "normal":
+        return arr
+    k = np.ones((2, 2), np.uint8)
+    if weight == "thick":
+        return cv2.erode(arr, k, iterations=1)   # shrink white → fatter dark lines
+    else:  # thin
+        return cv2.dilate(arr, k, iterations=1)  # expand white → thinner dark lines
+
+
+def _apply_tint(arr: np.ndarray, tint: str) -> np.ndarray:
+    """Apply a color wash to a grayscale line art image. Returns RGB array."""
+    # t=0 → line (dark), t=1 → background (light)
+    t = arr.astype(np.float32) / 255.0
+
+    if tint == "sepia":
+        dark  = np.array([30,  20,  10],  dtype=np.float32)  # dark brown lines
+        light = np.array([250, 240, 210], dtype=np.float32)  # warm cream background
+    elif tint == "blueprint":
+        dark  = np.array([210, 225, 255], dtype=np.float32)  # pale blue lines
+        light = np.array([18,  38,  85],  dtype=np.float32)  # dark navy background
+    elif tint == "warm":
+        dark  = np.array([20,  15,  10],  dtype=np.float32)  # near-black warm lines
+        light = np.array([255, 248, 235], dtype=np.float32)  # warm white background
+    elif tint == "cool":
+        dark  = np.array([10,  15,  25],  dtype=np.float32)  # near-black cool lines
+        light = np.array([235, 242, 255], dtype=np.float32)  # cool white background
+    else:
+        return arr  # "none" — return grayscale unchanged
+
+    result = dark[None, None, :] * (1 - t[:, :, None]) + light[None, None, :] * t[:, :, None]
+    return np.clip(result, 0, 255).astype(np.uint8)
 
 
 # ---------------------------------------------------------------------------
@@ -280,10 +308,7 @@ def _output_path(src: Path, out: str, style: str, per_image: bool = False) -> Pa
     "--style", "-s",
     type=click.Choice(["pencil", "ink", "canny", "outline", "xdog"]),
     default=None,
-    help=(
-        "Line art style. If omitted, runs all styles + best-blend into a "
-        "compare/ subfolder (default mode)."
-    ),
+    help="Line art style. Omit to run default mode (all styles + blends, top N saved).",
 )
 @click.option(
     "--detail", "-d",
@@ -293,10 +318,23 @@ def _output_path(src: Path, out: str, style: str, per_image: bool = False) -> Pa
 )
 @click.option(
     "--output", "-o", default="",
-    help=(
-        "Output path or directory. In default/--all-styles/--best-blend modes, "
-        "defaults to a compare/ subfolder next to the source images."
-    ),
+    help="Output directory. Default mode saves to compare/ next to the source images.",
+)
+@click.option(
+    "--top", "-n", default=5, show_default=True,
+    help="Number of top-ranked winners to save in default mode.",
+)
+@click.option(
+    "--tint", "-t",
+    type=click.Choice(["none", "sepia", "blueprint", "warm", "cool"]),
+    default="none", show_default=True,
+    help="Color wash to apply: sepia (warm cream), blueprint (navy/white), warm, cool.",
+)
+@click.option(
+    "--weight", "-w",
+    type=click.Choice(["thin", "normal", "thick"]),
+    default="normal", show_default=True,
+    help="Line thickness adjustment.",
 )
 @click.option(
     "--invert", is_flag=True, default=False,
@@ -304,32 +342,16 @@ def _output_path(src: Path, out: str, style: str, per_image: bool = False) -> Pa
 )
 @click.option(
     "--darken", is_flag=True, default=False,
-    help="Darken pencil lines via gamma curve (makes faint lines pop). Pencil style only.",
+    help="Darken pencil lines via gamma curve. Pencil style only.",
 )
-@click.option(
-    "--all-styles", is_flag=True, default=False,
-    help=(
-        "Generate all 6 variants (pencil, pencil-dark, ink, canny, outline, xdog) "
-        "for each source. Each image gets its own subdirectory."
-    ),
-)
-@click.option(
-    "--best-blend", is_flag=True, default=False,
-    help=(
-        "Score all 15 pairwise blend combinations and save the top 3 to a "
-        "best-blend/ subfolder. Prints the full ranking."
-    ),
-)
-def cli(sources, style, detail, output, invert, darken, all_styles, best_blend):
+def cli(sources, style, detail, output, top, tint, weight, invert, darken):
     """Convert photographs to line art.
 
-    DEFAULT MODE (no --style flag): runs all 6 style variants AND best-blend
-    scoring for every image, organized into a compare/ subfolder:\n
-      compare/image1/image1-pencil.png\n
-      compare/image1/image1-ink.png  ... (all 6 variants)\n
-      compare/image1/best-blend/     ... (top 3 blends)\n
+    DEFAULT MODE (no --style): scores all 6 style variants + 15 pairwise blends
+    (21 candidates total), saves the top N into compare/<stem>/ — flat, no
+    subfolders. Each filename includes its rank and score.\n
 
-    SINGLE STYLE MODE (--style given): produces one output file per image.\n
+    SINGLE STYLE MODE (--style given): one output file per image.\n
 
     Styles:\n
       pencil   Soft dodge-blend sketch. Add --darken to push lines darker.\n
@@ -338,12 +360,19 @@ def cli(sources, style, detail, output, invert, darken, all_styles, best_blend):
       outline  Thick clean object boundaries via bilateral filter + Sobel.\n
       xdog     Extended Difference of Gaussians — bold illustration strokes.\n
 
+    Output options:\n
+      --tint sepia      Warm cream/brown wash\n
+      --tint blueprint  Dark navy background, pale blue lines\n
+      --tint warm/cool  Subtle warm or cool white background\n
+      --weight thick    Fatten all lines one step\n
+      --weight thin     Slim all lines one step\n
+      --top N           Save N winners instead of default 5\n
+
     Examples:\n
       photo-lineart photo.jpg\n
-      photo-lineart *.jpg\n
-      photo-lineart photo.jpg --style ink --detail high\n
-      photo-lineart photo.jpg --style pencil --darken\n
-      photo-lineart *.jpg --output ./compare/\n
+      photo-lineart *.jpg --top 3 --tint sepia\n
+      photo-lineart photo.jpg --style ink --detail high --tint blueprint\n
+      photo-lineart photo.jpg --style pencil --darken --weight thick\n
     """
     import itertools
 
@@ -364,86 +393,88 @@ def cli(sources, style, detail, output, invert, darken, all_styles, best_blend):
         click.echo("No images found.", err=True)
         sys.exit(1)
 
-    # Default mode: no explicit style → run everything
-    default_mode = style is None and not all_styles and not best_blend
+    def _postprocess(arr: np.ndarray) -> np.ndarray:
+        """Apply invert → weight → tint in order."""
+        if invert:
+            arr = 255 - arr
+        arr = _apply_weight(arr, weight)
+        arr = _apply_tint(arr, tint)
+        return arr
 
-    if default_mode or all_styles or best_blend:
+    # -------------------------------------------------------------------------
+    # DEFAULT MODE: rank all 21 candidates, save top N flat
+    # -------------------------------------------------------------------------
+    if style is None:
         for path in paths:
             if path.suffix.lower() not in IMAGE_EXTS:
                 continue
 
-            # Default output root: compare/ next to the source file
             base = Path(output) if output else path.parent / "compare"
+            out_dir = base / path.stem
+            out_dir.mkdir(parents=True, exist_ok=True)
             click.echo(f"\n  {path.name}")
 
-            # Load grayscale once — shared by all variants and blends
             gray = _load_gray(path)
 
-            # --- All variants ---
-            if default_mode or all_styles:
-                variant_done = 0
-                for spec in VARIANT_SPECS:
-                    st, dk, label = spec
-                    try:
-                        arr = _render_variant(gray, detail, spec)
-                        if invert:
-                            arr = 255 - arr
-                        _, score = _score_blend(arr)
-                        out = base / path.stem / f"{path.stem}-{label}-{score:.3f}.png"
-                        out.parent.mkdir(parents=True, exist_ok=True)
-                        save(arr, out)
-                        variant_done += 1
-                        click.echo(f"    ✓ {out.name}")
-                    except Exception as e:
-                        click.echo(f"    ✗ {label}: {e}", err=True)
+            # Render all 6 variants
+            rendered: dict[str, np.ndarray] = {
+                spec[2]: _render_variant(gray, detail, spec)
+                for spec in VARIANT_SPECS
+            }
 
-            # --- Best-blend ---
-            if default_mode or best_blend:
-                click.echo(f"    — scoring blends...")
-                rendered = {
-                    spec[2]: _render_variant(gray, detail, spec)
-                    for spec in VARIANT_SPECS
-                }
-                results: list[tuple[float, float, str, str, np.ndarray]] = []
-                for (la, a), (lb, b) in itertools.combinations(rendered.items(), 2):
-                    blended = _blend(a, b)
-                    density, score = _score_blend(blended)
-                    results.append((score, density, la, lb, blended))
-                results.sort(key=lambda r: r[0], reverse=True)
+            # Score all 21 candidates: 6 variants + 15 blends
+            candidates: list[tuple[float, float, str, np.ndarray]] = []
 
-                click.echo(f"\n    {'#':<3} {'Score':>6}  {'Density':>8}  Combination")
-                click.echo(f"    {'-'*46}")
-                for rank, (score, density, la, lb, _) in enumerate(results, 1):
-                    marker = "  ◀" if rank <= 3 else ""
-                    click.echo(f"    {rank:<3} {score:>6.3f}  {density:>7.1%}  {la} + {lb}{marker}")
+            for label, arr in rendered.items():
+                density, score = _score_blend(arr)
+                candidates.append((score, density, label, arr))
 
-                out_dir = base / path.stem / "best-blend"
-                out_dir.mkdir(parents=True, exist_ok=True)
-                click.echo(f"\n    Saving top 3 → {out_dir}/")
-                for rank, (score, density, la, lb, arr) in enumerate(results[:3], 1):
-                    if invert:
-                        arr = 255 - arr
-                    fname = f"{path.stem}-blend{rank:02d}-{score:.3f}-{la}+{lb}.png"
-                    save(arr, out_dir / fname)
-                    click.echo(f"    ✓ {fname}  ({density:.1%} density)")
+            for (la, a), (lb, b) in itertools.combinations(rendered.items(), 2):
+                blended = _blend(a, b)
+                density, score = _score_blend(blended)
+                candidates.append((score, density, f"{la}+{lb}", blended))
+
+            candidates.sort(key=lambda c: c[0], reverse=True)
+
+            # Print full ranking
+            click.echo(f"\n    {'#':<3} {'Score':>6}  {'Density':>8}  Candidate")
+            click.echo(f"    {'-'*52}")
+            for rank, (score, density, label, _) in enumerate(candidates, 1):
+                marker = f"  ◀ top {top}" if rank <= top else ""
+                click.echo(f"    {rank:<3} {score:>6.3f}  {density:>7.1%}  {label}{marker}")
+
+            # Save top N
+            click.echo(f"\n    Saving top {top} → {out_dir}/")
+            for rank, (score, density, label, arr) in enumerate(candidates[:top], 1):
+                arr = _postprocess(arr)
+                fname = f"{path.stem}-top{rank:02d}-{score:.3f}-{label}.png"
+                save(arr, out_dir / fname)
+                click.echo(f"    ✓ {fname}")
 
         click.echo(f"\n  Done. Results in {Path(output) if output else paths[0].parent / 'compare'}/")
 
+    # -------------------------------------------------------------------------
+    # SINGLE STYLE MODE
+    # -------------------------------------------------------------------------
     else:
-        # Single-style mode — explicit --style given
         total = len(paths)
         done = 0
         for path in paths:
             if path.suffix.lower() not in IMAGE_EXTS:
                 continue
             try:
-                arr = convert(path, style=style, detail=detail, invert=invert, darken=darken)
+                arr = convert(path, style=style, detail=detail, invert=False, darken=darken)
+                arr = _postprocess(arr)
                 out = _output_path(path, output, style)
                 out.parent.mkdir(parents=True, exist_ok=True)
                 save(arr, out)
                 done += 1
-                extra = " +darken" if darken and style == "pencil" else ""
-                click.echo(f"  ✓ {out.name}  [{style}, {detail}{extra}]")
+                extras = []
+                if darken and style == "pencil": extras.append("darken")
+                if weight != "normal": extras.append(weight)
+                if tint != "none": extras.append(tint)
+                suffix = f"  [{', '.join(extras)}]" if extras else ""
+                click.echo(f"  ✓ {out.name}  [{style}, {detail}]{suffix}")
             except Exception as e:
                 click.echo(f"  ✗ {path.name}: {e}", err=True)
 
