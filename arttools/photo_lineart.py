@@ -388,7 +388,8 @@ def cli(sources, style, detail, output, invert, darken, all_styles, best_blend):
                         arr = _render_variant(gray, detail, spec)
                         if invert:
                             arr = 255 - arr
-                        out = base / path.stem / f"{path.stem}-{label}.png"
+                        _, score = _score_blend(arr)
+                        out = base / path.stem / f"{path.stem}-{label}-{score:.3f}.png"
                         out.parent.mkdir(parents=True, exist_ok=True)
                         save(arr, out)
                         variant_done += 1
@@ -422,9 +423,9 @@ def cli(sources, style, detail, output, invert, darken, all_styles, best_blend):
                 for rank, (score, density, la, lb, arr) in enumerate(results[:3], 1):
                     if invert:
                         arr = 255 - arr
-                    fname = f"{path.stem}-blend{rank:02d}-{la}+{lb}.png"
+                    fname = f"{path.stem}-blend{rank:02d}-{score:.3f}-{la}+{lb}.png"
                     save(arr, out_dir / fname)
-                    click.echo(f"    ✓ {fname}  ({score:.3f}, {density:.1%})")
+                    click.echo(f"    ✓ {fname}  ({density:.1%} density)")
 
         click.echo(f"\n  Done. Results in {Path(output) if output else paths[0].parent / 'compare'}/")
 
