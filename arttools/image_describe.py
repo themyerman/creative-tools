@@ -26,8 +26,8 @@ import click
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".tiff", ".tif", ".bmp"}
 
 OLLAMA_BASE = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
-DEFAULT_MODEL = "llava-llama3"
-FALLBACK_MODELS = ["llava-llama3", "llava", "llava:7b", "bakllava"]
+DEFAULT_MODEL = "moondream"
+FALLBACK_MODELS = ["moondream", "llava-llama3", "llava", "llava:7b", "bakllava"]
 
 DESCRIBE_PROMPT = (
     "Describe this image in 2-3 sentences. Cover: (1) the main subject or scene, "
@@ -101,6 +101,8 @@ def describe_image(image_path: Path, model: str) -> str:
     text = result.get("response", "").strip()
     if not text:
         return "[no description returned]"
+    # Strip leading answer numbering that some models (e.g. moondream) prepend
+    text = re.sub(r"^\(\d+\)\s*", "", text)
     return text
 
 

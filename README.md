@@ -302,8 +302,8 @@ open /Applications/Ollama.app        # if already downloaded
 # — or —
 brew install ollama                  # if Homebrew is available
 
-# Pull a vision model (~5 GB)
-ollama pull llava-llama3
+# Pull a vision model (~1.7 GB, low RAM)
+ollama pull moondream
 ```
 
 Ollama must be running before you call the tool. The app starts automatically on login once installed.
@@ -333,7 +333,7 @@ image-describe ~/art/ --model llava
 |------|---------|-------------|
 | `--output` / `-o` | `image-descriptions.md` next to source | Output markdown file |
 | `--recursive` / `-r` | off | Walk subdirectories |
-| `--model` / `-m` | `llava-llama3` | Ollama vision model to use |
+| `--model` / `-m` | `moondream` | Ollama vision model to use |
 
 ### Output
 
